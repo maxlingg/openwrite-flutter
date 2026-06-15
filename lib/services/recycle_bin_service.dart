@@ -58,30 +58,83 @@ class RecycleBinService {
 
   RecycleBinService(this._dataPath);
 
+  /// 加载回收站项目
+  Future<List<RecycleBinItem>> loadItems() async {
+    try {
+      final file = File(path.join(_dataPath.toString(), _fileName));
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final list = jsonDecode(content) as List;
+        _items = list.map((e) => RecycleBinItem.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {
+      _items = [];
+    }
+    return _items;
+  }
+
   /// 获取已删除的笔记
   Future<List<RecycleBinItem>> getDeletedNotes() async {
     return _items.where((i) => i.type == 'note').toList();
   }
 
-  /// 恢复笔记
-  Future<void> restoreNote(String id) async {
+  /// 添加到回收站
+  Future<void> addItem({
+    required String id,
+    required String type,
+    required String title,
+    String content = '',
+    Map<String, dynamic> metadata = const {},
+  }) async {
+    final item = RecycleBinItem(
+      id: id,
+      type: type,
+      title: title,
+      content: content,
+      metadata: metadata,
+    );
+    _items.insert(0, item);
+  }
+
+  /// 恢复项目
+  Future<void> restoreItem(String id) async {
     _items.removeWhere((i) => i.id == id);
-    await _saveItems();
+  }
+
+  /// 恢复笔记（兼容方法）
+  Future<void> restoreNote(String id) async {
+    await restoreItem(id);
   }
 
   /// 永久删除
   Future<void> permanentlyDelete(String id) async {
     _items.removeWhere((i) => i.id == id);
-    await _saveItems();
   }
 
   /// 清空回收站
-  Future<void> emptyRecycleBin() async {
+  Future<void> clearAll() async {
     _items.clear();
-    await _saveItems();
   }
 
-  Future<void> _saveItems() async {
-    // 简化版本，不做实际文件操作
+  /// 清空回收站（兼容方法）
+  Future<void> emptyRecycleBin() async {
+    await clearAll();
+  }
+
+  /// 清理过期项目
+  Future<void> cleanExpired() async {
+    _items.removeWhere((i) => i.isExpired);
+  }
+
+  /// 获取所有项目
+  List<RecycleBinItem> getItems() => List.unmodifiable(_items);
+
+  /// 获取统计
+  Map<String, int> getStats() {
+    return {
+      'total': _items.length,
+      'notes': _items.where((i) => i.type == 'note').length,
+      'novels': _items.where((i) => i.type == 'novel').length,
+    };
   }
 }
