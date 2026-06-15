@@ -7,6 +7,8 @@ import '../widgets/note_card.dart';
 import '../widgets/search_bar.dart' as custom;
 import '../widgets/modern_fab.dart';
 import 'editor_page.dart';
+import '../screens/novel_list_screen.dart';
+import '../providers/novel_provider.dart';
 
 /// 首页 - 笔记列表
 class HomePage extends StatefulWidget {
@@ -22,6 +24,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   List<Note> _filteredNotes = [];
   String _searchQuery = '';
   bool _isLoading = true;
+  int _currentIndex = 0;
   
   late AnimationController _listAnimationController;
   late Animation<double> _listAnimation;
@@ -102,8 +105,46 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
   }
 
+  void _onNavTap(int index) {
+    if (index != _currentIndex) {
+      setState(() => _currentIndex = index);
+      if (index == 1) {
+        // 切换到小说页面时刷新
+        context.read<NovelProvider>().loadNovels();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _buildNotesPage(),
+          const NovelListScreen(),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: _onNavTap,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.edit_note_outlined),
+            selectedIcon: Icon(Icons.edit_note),
+            label: '笔记',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_stories_outlined),
+            selectedIcon: Icon(Icons.auto_stories),
+            label: '小说',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotesPage() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.lightPrimary;
 
