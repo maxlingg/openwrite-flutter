@@ -1,0 +1,203 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+/// LLM 客户端 - 支持 OpenAI GPT、Claude 等
+class LlmClient {
+  final String baseUrl;
+  final String apiKey;
+  final String model;
+  
+  LlmClient({
+    required this.baseUrl,
+    required this.apiKey,
+    this.model = 'gpt-4o',
+  });
+
+  /// 发送聊天请求
+  Future<LlmResponse> chat({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+    int maxTokens = 4000,
+    bool stream = false,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': model,
+          'messages': messages.map((m) => m.toJson()).toList(),
+          'temperature': temperature,
+          'max_tokens': maxTokens,
+          'stream': stream,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return LlmResponse.fromJson(data);
+      } else {
+        throw LlmException('请求失败: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      if (e is LlmException) rethrow;
+      throw LlmException('网络错误: $e');
+    }
+  }
+
+  /// 流式聊天请求
+  Stream<String> chatStream({
+    required List<LlmMessage> messages,
+    double temperature = 0.7,
+    int maxTokens = 4000,
+  }) async* {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': model,
+          'messages': messages.map((m) => m.toJson()).toList(),
+          'temperature': temperature,
+          'max_tokens': maxTokens,
+          'stream': true,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final lines = utf8.decode(response.bodyBytes).split('\n');
+        for (final line in lines) {
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6);
+            if (data == '[DONE]') break;
+            try {
+              final json = jsonDecode(data);
+              final content = json['choices']?[0]?['delta']?['content'];
+              if (content != null && content is String) {
+                yield content;
+              }
+            } catch (_) {}
+          }
+        }
+      } else {
+        throw LlmException('请求失败: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is LlmException) yield* Stream.error(e);
+      yield* Stream.error(LlmException('网络错误: $e'));
+    }
+  }
+
+  /// 测试连接
+  Future<bool> testConnection() async {
+    try {
+      final response = await chat(
+        messages: [LlmMessage(role: 'user', content: 'test')],
+        maxTokens: 10,
+      );
+      return response.content.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+/// LLM 消息
+class LlmMessage {
+  final String role; // system, user, assistant
+  final String content;
+  final String? name;
+
+  LlmMessage({
+    required this.role,
+    required this.content,
+    this.name,
+  });
+
+  Map<String, dynamic> toJson() {
+    final json = {
+      'role': role,
+      'content': content,
+    };
+    if (name != null) json['name'] = name;
+    return json;
+  }
+
+  factory LlmMessage.fromJson(Map<String, dynamic> json) {
+    return LlmMessage(
+      role: json['role'] as String,
+      content: json['content'] as String,
+      name: json['name'] as String?,
+    );
+  }
+}
+
+/// LLM 响应
+class LlmResponse {
+  final String content;
+  final String model;
+  final int tokensUsed;
+  final String? reasoning;
+
+  LlmResponse({
+    required this.content,
+    required this.model,
+    required this.tokensUsed,
+    this.reasoning,
+  });
+
+  factory LlmResponse.fromJson(Map<String, dynamic> json) {
+    final choices = json['choices'] as List?;
+    final firstChoice = choices?.isNotEmpty == true ? choices![0] : null;
+    final message = firstChoice?['message'];
+    
+    return LlmResponse(
+      content: message?['content'] as String? ?? '',
+      model: json['model'] as String? ?? '',
+      tokensUsed: json['usage']?['total_tokens'] as int? ?? 0,
+      reasoning: firstChoice?['reasoning'] as String?,
+    );
+  }
+}
+
+/// LLM 异常
+class LlmException implements Exception {
+  final String message;
+  LlmException(this.message);
+  
+  @override
+  String toString() => message;
+}
+
+/// LLM 配置预设
+class LlmPreset {
+  static const openai = {
+    'name': 'OpenAI',
+    'baseUrl': 'https://api.openai.com/v1',
+    'model': 'gpt-4o',
+  };
+  
+  static const anthropic = {
+    'name': 'Claude',
+    'baseUrl': 'https://api.anthropic.com/v1',
+    'model': 'claude-3-5-sonnet-20241022',
+  };
+  
+  static const kilo = {
+    'name': 'Kilo AI',
+    'baseUrl': 'https://api.kilo.ai/api',
+    'model': 'meta-llama/Llama-3-70b-chat-hf',
+  };
+  
+  static const openrouter = {
+    'name': 'OpenRouter',
+    'baseUrl': 'https://openrouter.ai/api/v1',
+    'model': 'anthropic/claude-3.5-sonnet',
+  };
+}

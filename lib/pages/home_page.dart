@@ -8,6 +8,8 @@ import '../widgets/search_bar.dart' as custom;
 import '../widgets/modern_fab.dart';
 import 'editor_page.dart';
 import '../screens/novel_list_screen.dart';
+import '../screens/chat_screen.dart';
+import '../screens/settings_screen_new.dart';
 import '../providers/novel_provider.dart';
 
 /// 首页 - 笔记列表
@@ -141,6 +143,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
         ],
       ),
+      floatingActionButton: _currentIndex == 0
+          ? ModernFAB(
+              onPressed: _onCreateNote,
+              icon: Icons.add_rounded,
+              tooltip: '新建笔记',
+            )
+          : null,
     );
   }
 
@@ -188,6 +197,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
+                  // AI 助手按钮
+                  IconButton(
+                    icon: const Icon(Icons.smart_toy_outlined),
+                    tooltip: 'AI 助手',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ChatScreen()),
+                      );
+                    },
+                  ),
+                  // 设置按钮
+                  IconButton(
+                    icon: const Icon(Icons.settings_outlined),
+                    tooltip: '设置',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      );
+                    },
+                  ),
                   // 主题切换
                   _ThemeToggleButton(),
                 ],
@@ -243,13 +274,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
           ],
         ),
-      ),
-      
-      // 浮动创建按钮
-      floatingActionButton: ModernFAB(
-        onPressed: _onCreateNote,
-        icon: Icons.add_rounded,
-        tooltip: '新建笔记',
       ),
     );
   }
