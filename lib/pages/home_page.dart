@@ -338,7 +338,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 curve: Curves.easeOutQuart,
               ),
             )),
-            child: NoteCard(
+            child: NoteCardWidget(
               note: _filteredNotes[index],
               onTap: () => _onNoteTap(_filteredNotes[index]),
             ),
