@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
+import '../models/note.dart';
 import '../services/note_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/format_toolbar.dart';
