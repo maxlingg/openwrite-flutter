@@ -1,208 +1,81 @@
 import 'package:flutter/material.dart';
-import '../services/note_service.dart';
-import '../theme/app_theme.dart';
+import '../models/note.dart';
 
-/// 现代化笔记卡片组件
-class NoteCard extends StatefulWidget {
+class NoteCardWidget extends StatelessWidget {
   final Note note;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
 
-  const NoteCard({
-    super.key,
-    required this.note,
-    required this.onTap,
-    this.onDelete,
-  });
-
-  @override
-  State<NoteCard> createState() => _NoteCardState();
-}
-
-class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  bool _isPressed = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails details) {
-    setState(() => _isPressed = true);
-    _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    setState(() => _isPressed = false);
-    _controller.reverse();
-  }
-
-  void _onTapCancel() {
-    setState(() => _isPressed = false);
-    _controller.reverse();
-  }
+  const NoteCardWidget({super.key, required this.note, required this.onTap, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final categoryColor = AppTheme.categoryColors[widget.note.category]!;
-    final primaryColor = isDark ? AppTheme.darkPrimary : AppTheme.lightPrimary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final categoryColor = _getCategoryColor(note.category);
 
-    return AnimatedBuilder(
-      animation: _scaleAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: child,
-        );
+    return Dismissible(
+      key: Key(note.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(color: colorScheme.errorContainer, borderRadius: BorderRadius.circular(16)),
+        child: Icon(Icons.delete_rounded, color: colorScheme.onErrorContainer),
+      ),
+      confirmDismiss: (direction) async {
+        onDelete?.call();
+        return false;
       },
       child: GestureDetector(
-        onTapDown: _onTapDown,
-        onTapUp: _onTapUp,
-        onTapCancel: _onTapCancel,
-        onTap: widget.onTap,
+        onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkSurface : AppTheme.lightSurface,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-            border: Border.all(
-              color: isDark ? AppTheme.darkOutlineVariant : AppTheme.lightOutlineVariant,
-            ),
-            boxShadow: _isPressed ? null : AppTheme.shadowSm,
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colorScheme.outlineVariant),
+            boxShadow: [BoxShadow(color: colorScheme.shadow.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))],
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 顶部渐变色条
               Container(
-                height: 3,
+                height: 4,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [primaryColor, primaryColor.withOpacity(0.7)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
+                    colors: [Color(int.parse(categoryColor['text']!.replaceFirst('0x', '0xFF'))), Color(int.parse(categoryColor['text']!.replaceFirst('0x', '0xFF'))).withOpacity(0.6)],
                   ),
                 ),
               ),
-              
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 分类标签
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: categoryColor.background,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(categoryColor.emoji, style: const TextStyle(fontSize: 11)),
-                          const SizedBox(width: 4),
-                          Text(
-                            widget.note.categoryName,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: categoryColor.text,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // 标题
-                    Text(
-                      widget.note.title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        height: 1.4,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // 摘要
-                    Text(
-                      widget.note.excerpt,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    
-                    const SizedBox(height: 12),
-                    
-                    // 底部信息
                     Row(
                       children: [
-                        // 日期
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 14,
-                          color: isDark ? AppTheme.darkOnSurfaceVariant : AppTheme.lightOnSurfaceVariant,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Color(int.parse(categoryColor['bg']!.replaceFirst('0x', '0xFF'))), borderRadius: BorderRadius.circular(8)),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(categoryColor['emoji']!, style: const TextStyle(fontSize: 12)),
+                            const SizedBox(width: 4),
+                            Text(note.categoryName, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(int.parse(categoryColor['text']!.replaceFirst('0x', '0xFF'))))),
+                          ]),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDate(widget.note.updatedAt),
-                          style: Theme.of(context).textTheme.labelMedium,
-                        ),
-                        const SizedBox(width: 16),
-                        // 字数
-                        Icon(
-                          Icons.article_outlined,
-                          size: 14,
-                          color: isDark ? AppTheme.darkOnSurfaceVariant : AppTheme.lightOnSurfaceVariant,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${widget.note.wordCount} 字',
-                          style: Theme.of(context).textTheme.labelMedium,
-                        ),
-                        
                         const Spacer(),
-                        
-                        // 标签
-                        ...widget.note.tags.take(2).map((tag) => Container(
-                          margin: const EdgeInsets.only(left: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkSurfaceVariant : AppTheme.lightSurfaceVariant,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            tag,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: isDark ? AppTheme.darkOnSurfaceVariant : AppTheme.lightOnSurfaceVariant,
-                            ),
-                          ),
-                        )),
+                        Text(_formatDate(note.updatedAt), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    Text(note.title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    if (note.excerpt.isNotEmpty) ...[const SizedBox(height: 8), Text(note.excerpt, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis)],
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Icon(Icons.text_fields_rounded, size: 14, color: colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 4),
+                      Text('${note.wordCount} 字', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                    ]),
                   ],
                 ),
               ),
@@ -213,18 +86,24 @@ class _NoteCardState extends State<NoteCard> with SingleTickerProviderStateMixin
     );
   }
 
+  Map<String, String> _getCategoryColor(String category) {
+    const colors = {
+      'writing': {'emoji': '✍️', 'bg': '0xFFE8DEF8', 'text': '0xFF6750A4'},
+      'work': {'emoji': '💼', 'bg': '0xFFE3F2FD', 'text': '0xFF1976D2'},
+      'life': {'emoji': '🌿', 'bg': '0xFFE8F5E9', 'text': '0xFF388E3C'},
+      'study': {'emoji': '📚', 'bg': '0xFFFFF3E0', 'text': '0xFFF57C00'},
+      'idea': {'emoji': '💡', 'bg': '0xFFFFFDE7', 'text': '0xFFFBC02D'},
+      'diary': {'emoji': '📔', 'bg': '0xFFFCE4EC', 'text': '0xFFE91E63'},
+    };
+    return colors[category] ?? colors['writing']!;
+  }
+
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    
-    if (diff.inDays == 0) {
-      return '今天';
-    } else if (diff.inDays == 1) {
-      return '昨天';
-    } else if (diff.inDays < 7) {
-      return '${diff.inDays}天前';
-    } else {
-      return '${date.month}-${date.day}';
-    }
+    if (diff.inDays == 0) return '今天';
+    if (diff.inDays == 1) return '昨天';
+    if (diff.inDays < 7) return '${diff.inDays}天前';
+    return '${date.month}-${date.day}';
   }
 }
