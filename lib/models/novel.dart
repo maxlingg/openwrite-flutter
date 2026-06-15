@@ -259,6 +259,34 @@ class Character {
     );
   }
 
+  Character copyWith({
+    String? id,
+    String? novelId,
+    String? name,
+    String? role,
+    String? description,
+    String? appearance,
+    String? personality,
+    String? backstory,
+    String? motivation,
+    String? avatar,
+    Map<String, String>? customFields,
+  }) {
+    return Character(
+      id: id ?? this.id,
+      novelId: novelId ?? this.novelId,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      description: description ?? this.description,
+      appearance: appearance ?? this.appearance,
+      personality: personality ?? this.personality,
+      backstory: backstory ?? this.backstory,
+      motivation: motivation ?? this.motivation,
+      avatar: avatar ?? this.avatar,
+      customFields: customFields ?? this.customFields,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

@@ -121,11 +121,11 @@ class LlmMessage {
   });
 
   Map<String, dynamic> toJson() {
-    final json = {
+    final Map<String, dynamic> json = {
       'role': role,
       'content': content,
     };
-    if (name != null) json['name'] = name;
+    if (name != null) json['name'] = name!;
     return json;
   }
 

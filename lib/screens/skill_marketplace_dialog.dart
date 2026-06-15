@@ -82,7 +82,7 @@ class _SkillMarketplaceDialogState extends State<SkillMarketplaceDialog> {
   ];
 
   List<String> get _categories {
-    final cats = _skills.map((s) => s.category).toSet().toList();
+    final cats = _skills.map((s) => s.category ?? '').where((c) => c.isNotEmpty).toSet().toList();
     return ['全部', ...cats];
   }
 

@@ -51,11 +51,11 @@ class WebDavService {
     if (_config == null) return false;
     
     try {
-      final response = await http.propfind(
+      final response = await _propfind(
         _getUrl(''),
-        headers: _authHeaders,
-        body: '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>',
-        maxDepth: 0,
+        _authHeaders,
+        '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>',
+        0,
       );
       return response.statusCode == 207;
     } catch (_) {
@@ -117,11 +117,11 @@ class WebDavService {
     if (_config == null) throw Exception('未配置 WebDav');
 
     try {
-      final response = await http.propfind(
+      final response = await _propfind(
         _getUrl(path),
-        headers: _authHeaders,
-        body: '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>',
-        maxDepth: 1,
+        _authHeaders,
+        '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>',
+        1,
       );
 
       if (response.statusCode != 207) return [];
@@ -137,10 +137,7 @@ class WebDavService {
     if (_config == null) throw Exception('未配置 WebDav');
 
     try {
-      final response = await http.mkcol(
-        _getUrl(path),
-        headers: _authHeaders,
-      );
+      final response = await _mkcol(_getUrl(path), _authHeaders);
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
       throw Exception('创建目录失败: $e');
@@ -225,53 +222,30 @@ class WebDavItem {
   });
 }
 
-extension HttpClientPropfind on http.HttpClient {
-  static const propfind = _PropfindRequest();
-}
-
-class _PropfindRequest {
-  const _PropfindRequest();
+/// PROPFIND 请求
+Future<http.Response> _propfind(
+  Uri url,
+  Map<String, String> headers,
+  String body,
+  int maxDepth,
+) async {
+  final request = http.Request('PROPFIND', url);
+  request.headers.addAll(headers);
+  request.headers['Depth'] = maxDepth.toString();
+  request.body = body;
   
-  Future<http.Response> call(
-    Uri url, {
-    required Map<String, String> headers,
-    required String body,
-    int maxDepth = 1,
-  }) async {
-    final request = http.Request('PROPFIND', url);
-    request.headers.addAll(headers);
-    request.headers['Depth'] = maxDepth.toString();
-    request.body = body;
-    
-    final streamed = await request.send();
-    return await http.Response.fromStream(streamed);
-  }
+  final streamed = await request.send();
+  return await http.Response.fromStream(streamed);
 }
 
-extension httpExtension on http.HttpClient {
-  Future<http.Response> propfind(
-    Uri url, {
-    required Map<String, String> headers,
-    required String body,
-    int maxDepth = 1,
-  }) async {
-    final request = http.Request('PROPFIND', url);
-    request.headers.addAll(headers);
-    request.headers['Depth'] = maxDepth.toString();
-    request.body = body;
-    
-    final streamed = await request.send();
-    return await http.Response.fromStream(streamed);
-  }
-
-  Future<http.Response> mkcol(
-    Uri url, {
-    required Map<String, String> headers,
-  }) async {
-    final request = http.Request('MKCOL', url);
-    request.headers.addAll(headers);
-    
-    final streamed = await request.send();
-    return await http.Response.fromStream(streamed);
-  }
+/// MKCOL 请求
+Future<http.Response> _mkcol(
+  Uri url,
+  Map<String, String> headers,
+) async {
+  final request = http.Request('MKCOL', url);
+  request.headers.addAll(headers);
+  
+  final streamed = await request.send();
+  return await http.Response.fromStream(streamed);
 }
