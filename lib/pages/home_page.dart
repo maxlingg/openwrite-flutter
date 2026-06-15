@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../models/note.dart';
 import '../services/note_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/note_card.dart';

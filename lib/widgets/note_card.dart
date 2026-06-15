@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/note.dart';
+import '../services/note_service.dart';
 import '../theme/app_theme.dart';
 
 /// 现代化笔记卡片组件

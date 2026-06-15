@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/note.dart';
+import '../services/note_service.dart';
 import '../theme/app_theme.dart';
 
 /// 分类选择器底部弹窗

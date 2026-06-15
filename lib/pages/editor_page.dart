@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
-import '../models/note.dart';
 import '../services/note_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/format_toolbar.dart';
@@ -104,9 +103,6 @@ class _EditorPageState extends State<EditorPage> {
         _activeFormats.add(action);
       }
     });
-    
-    // 这里应该实现实际的格式化逻辑
-    // 简化版本：只更新状态
   }
 
   Future<void> _onSelectCategory() async {
