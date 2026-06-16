@@ -14,14 +14,37 @@ class AINovelWritingScreen extends StatefulWidget {
 class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final LlmClient _llmClient = LlmClient();
+  final AppSettingsService _settingsService = AppSettingsService();
+  final List<LlmMessage> _chatHistory = [];
   
   List<_ChatMessage> _messages = [];
   bool _isLoading = false;
   bool _webSearchEnabled = false;
+  bool _isConfigured = false;
   
   // 存储当前对话上下文
   Map<String, dynamic>? _currentProject;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    await _settingsService.loadSettings();
+    final config = _settingsService.llmConfig;
+    setState(() {
+      _isConfigured = config.isConfigured;
+    });
+    if (_isConfigured) {
+      LlmClient.setGlobalConfig(
+        baseUrl: config.baseUrl,
+        apiKey: config.apiKey,
+        model: config.model,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -333,14 +356,16 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
   Widget _buildTitleRecommendation(BuildContext context, String content) {
     // 解析推荐的标题
     final titles = _parseTitles(content);
+    final parts = content.split('***');
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          content.split('***')[0].trim(),
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
+        if (parts.isNotEmpty && parts[0].isNotEmpty)
+          Text(
+            parts[0].trim(),
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         const SizedBox(height: 12),
         ...titles.map((title) {
           return Padding(
@@ -368,11 +393,11 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
             ),
           );
         }),
-        if (content.contains('***'))
+        if (parts.length > 1 && parts[1].isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              content.split('***')[1].trim(),
+              parts[1].trim(),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -393,11 +418,7 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          Icons.check_circle,
-          color: Colors.green,
-          size: 32,
-        ),
+        const Icon(Icons.check_circle, color: Colors.green, size: 32),
         const SizedBox(height: 8),
         Text(
           '小说项目已创建！',
@@ -475,7 +496,7 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
                   maxLines: 3,
                   minLines: 1,
                   decoration: InputDecoration(
-                    hintText: '写下你的故事...',
+                    hintText: _isConfigured ? '写下你的故事...' : '请先在设置中配置 AI',
                     filled: true,
                     fillColor: colorScheme.surfaceContainerHighest,
                     border: OutlineInputBorder(
@@ -487,11 +508,12 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
                       vertical: 12,
                     ),
                   ),
+                  enabled: _isConfigured,
                 ),
               ),
               const SizedBox(width: 8),
               IconButton.filled(
-                onPressed: _isLoading ? null : _sendMessage,
+                onPressed: _isLoading || !_isConfigured ? null : _sendMessage,
                 icon: _isLoading
                     ? const SizedBox(
                         width: 20,
@@ -533,7 +555,12 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => const _AISettingsSheet(),
+      builder: (context) => _AISettingsSheet(
+        settingsService: _settingsService,
+        onSaved: () {
+          _loadSettings();
+        },
+      ),
     );
   }
 
@@ -551,7 +578,6 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
   }
 
   void _showRecentProjects(BuildContext context) {
-    // TODO: 显示最近的项目列表
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('暂无最近的写作项目')),
     );
@@ -598,7 +624,7 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty || _isLoading) return;
+    if (text.isEmpty || _isLoading || !_isConfigured) return;
 
     setState(() {
       _messages.add(_ChatMessage(isUser: true, content: text));
@@ -606,10 +632,24 @@ class _AINovelWritingScreenState extends State<AINovelWritingScreen> {
     });
     _inputController.clear();
 
+    // 添加到聊天历史
+    _chatHistory.add(LlmMessage.user(text));
+
     try {
-      final response = await _llmClient.chat(text);
+      final client = LlmClient.getGlobalClient();
+      if (client == null) {
+        throw Exception('请先配置 AI 设置');
+      }
+      
+      final response = await client.chat(
+        messages: _chatHistory,
+        temperature: _settingsService.llmConfig.temperature,
+      );
+      
+      _chatHistory.add(LlmMessage.assistant(response.content));
+      
       setState(() {
-        _messages.add(_ChatMessage(isUser: false, content: response));
+        _messages.add(_ChatMessage(isUser: false, content: response.content));
       });
     } catch (e) {
       setState(() {
@@ -908,7 +948,13 @@ class _TutorialContent extends StatelessWidget {
 
 /// AI 设置面板
 class _AISettingsSheet extends StatefulWidget {
-  const _AISettingsSheet();
+  final AppSettingsService settingsService;
+  final VoidCallback? onSaved;
+
+  const _AISettingsSheet({
+    required this.settingsService,
+    this.onSaved,
+  });
 
   @override
   State<_AISettingsSheet> createState() => _AISettingsSheetState();
@@ -925,10 +971,10 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
   double _temperature = 0.7;
 
   final _presets = {
-    'OpenAI': {'url': 'https://api.openai.com/v1'},
-    'Claude': {'url': 'https://api.anthropic.com'},
-    'Kilo AI': {'url': 'https://api.kilig.ai/v1'},
-    '自定义': {'url': ''},
+    'OpenAI': {'url': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini'},
+    'Claude': {'url': 'https://api.anthropic.com', 'model': 'claude-3-5-sonnet-20240620'},
+    'Kilo AI': {'url': 'https://api.kilig.ai/v1', 'model': 'meta-llama/Llama-3-70b-chat-hf'},
+    '自定义': {'url': '', 'model': ''},
   };
 
   @override
@@ -938,38 +984,61 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
   }
 
   Future<void> _loadSettings() async {
-    final settings = await AppSettingsService().loadSettings();
+    final config = widget.settingsService.llmConfig;
     setState(() {
-      _apiUrlController.text = settings['apiUrl'] ?? '';
-      _apiKeyController.text = settings['apiKey'] ?? '';
-      _model = settings['model'] ?? 'gpt-4o-mini';
-      _temperature = (settings['temperature'] ?? 0.7).toDouble();
+      _apiUrlController.text = config.baseUrl;
+      _apiKeyController.text = config.apiKey;
+      _model = config.model;
+      _temperature = config.temperature;
+      
+      // 根据 URL 识别预设
+      if (config.baseUrl.contains('openai.com')) {
+        _selectedProvider = 'OpenAI';
+      } else if (config.baseUrl.contains('anthropic')) {
+        _selectedProvider = 'Claude';
+      } else if (config.baseUrl.contains('kilo')) {
+        _selectedProvider = 'Kilo AI';
+      } else if (config.baseUrl.isNotEmpty) {
+        _selectedProvider = '自定义';
+      }
     });
   }
 
   Future<void> _saveSettings() async {
-    await AppSettingsService().saveSettings({
-      'apiUrl': _apiUrlController.text,
-      'apiKey': _apiKeyController.text,
-      'model': _model,
-      'temperature': _temperature,
-    });
+    final config = LlmConfig(
+      baseUrl: _apiUrlController.text.trim(),
+      apiKey: _apiKeyController.text.trim(),
+      model: _model,
+      temperature: _temperature,
+    );
+    
+    await widget.settingsService.updateLlmConfig(config);
+    
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('设置已保存')),
       );
+      widget.onSaved?.call();
       Navigator.pop(context);
     }
   }
 
   Future<void> _testConnection() async {
+    if (_apiUrlController.text.isEmpty || _apiKeyController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请填写完整的 API 配置')),
+      );
+      return;
+    }
+
     setState(() => _isTesting = true);
     try {
-      final client = LlmClient();
-      final success = await client.testConnection(
-        _apiUrlController.text,
-        _apiKeyController.text,
+      final client = LlmClient(
+        baseUrl: _apiUrlController.text.trim(),
+        apiKey: _apiKeyController.text.trim(),
+        model: _model,
       );
+      final success = await client.testConnection();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(success ? '连接成功 ✓' : '连接失败')),
@@ -986,9 +1055,48 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
     }
   }
 
-  void _updateModelsFromPreset() {
+  Future<void> _fetchModels() async {
+    if (_apiUrlController.text.isEmpty || _apiKeyController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先填写 API 配置')),
+      );
+      return;
+    }
+
+    setState(() => _isLoadingModels = true);
+    try {
+      final client = LlmClient(
+        baseUrl: _apiUrlController.text.trim(),
+        apiKey: _apiKeyController.text.trim(),
+        model: _model,
+      );
+      final models = await client.fetchModels();
+      setState(() => _availableModels = models);
+      if (models.isEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('未获取到可用模型，使用默认列表')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('获取模型失败: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoadingModels = false);
+    }
+  }
+
+  void _onPresetChanged(String? value) {
+    if (value == null) return;
     setState(() {
-      _availableModels = [];
+      _selectedProvider = value;
+      if (value != '自定义') {
+        _apiUrlController.text = _presets[value]!['url']!;
+        _model = _presets[value]!['model']!;
+        _availableModels = [];
+      }
     });
   }
 
@@ -1025,13 +1133,7 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
             PageDecoration.choiceChipGrid(
               items: _presets.keys.toList(),
               selectedItem: _selectedProvider,
-              onSelected: (v) {
-                setState(() => _selectedProvider = v);
-                if (v != '自定义') {
-                  _apiUrlController.text = _presets[v]!['url']!;
-                }
-                _updateModelsFromPreset();
-              },
+              onSelected: _onPresetChanged,
             ),
             const SizedBox(height: 16),
             
@@ -1066,21 +1168,7 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _isLoadingModels ? null : () async {
-                  setState(() => _isLoadingModels = true);
-                  try {
-                    final models = await LlmClient().fetchModels();
-                    setState(() => _availableModels = models);
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('获取模型失败: $e')),
-                      );
-                    }
-                  } finally {
-                    setState(() => _isLoadingModels = false);
-                  }
-                },
+                onPressed: _isLoadingModels ? null : _fetchModels,
                 icon: _isLoadingModels 
                     ? const SizedBox(
                         width: 16,
