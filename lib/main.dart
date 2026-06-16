@@ -6,6 +6,7 @@ import 'providers/novel_provider.dart';
 import 'pages/home_page.dart';
 import 'screens/chat_screen.dart';
 import 'screens/ai_writing_tools_screen.dart';
+import 'screens/ai_novel_writing_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,7 @@ class OpenWriteApp extends StatelessWidget {
             routes: {
               '/chat': (context) => const ChatScreen(),
               '/ai-tools': (context) => const AIWritingToolsScreen(),
+              '/ai-novel': (context) => const AINovelWritingScreen(),
             },
           );
         },
