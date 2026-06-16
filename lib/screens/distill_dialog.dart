@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/llm_client.dart';
+import '../services/skill_service.dart';
+import '../services/app_settings_service.dart';
 
 /// AI 文段处理类型
 enum DistillType {
@@ -20,12 +22,14 @@ enum DistillType {
 class DistillDialog extends StatefulWidget {
   final String initialText;
   final LlmClient? client;
+  final LlmConfig? llmConfig;
   final Function(String result)? onComplete;
 
   const DistillDialog({
     super.key,
     this.initialText = '',
     this.client,
+    this.llmConfig,
     this.onComplete,
   });
 
@@ -39,12 +43,28 @@ class _DistillDialogState extends State<DistillDialog> {
   DistillType _selectedType = DistillType.expand;
   bool _isProcessing = false;
   String? _error;
+  
+  // 技能选择
+  Skill? _selectedSkill;
+  final SkillService _skillService = SkillService('');
 
   @override
   void initState() {
     super.initState();
     _inputController = TextEditingController(text: widget.initialText);
     _outputController = TextEditingController();
+    _loadSkills();
+  }
+
+  Future<void> _loadSkills() async {
+    await _skillService.loadInstalledSkills();
+    // 默认选择文笔提升技能（润色类）
+    final polishSkill = _skillService.allAvailableSkills
+        .where((s) => s.type == SkillType.polish && s.isInstalled)
+        .firstOrNull;
+    if (polishSkill != null) {
+      setState(() => _selectedSkill = polishSkill);
+    }
   }
 
   @override
@@ -60,8 +80,9 @@ class _DistillDialogState extends State<DistillDialog> {
       return;
     }
 
-    if (widget.client == null) {
-      setState(() => _error = '请先在 AI 助手中配置 API Key');
+    final config = widget.llmConfig ?? LlmConfig();
+    if (config.apiKey.isEmpty) {
+      setState(() => _error = '请先在设置中配置 API Key');
       return;
     }
 
@@ -71,16 +92,22 @@ class _DistillDialogState extends State<DistillDialog> {
     });
 
     try {
+      final client = widget.client ?? LlmClient(
+        baseUrl: config.baseUrl,
+        apiKey: config.apiKey,
+        model: config.model,
+      );
+
       final prompt = _buildPrompt(_inputController.text.trim());
       final messages = [
         LlmMessage(role: 'system', content: _buildSystemPrompt()),
         LlmMessage(role: 'user', content: prompt),
       ];
 
-      final response = await widget.client!.chat(
+      final response = await client.chat(
         messages: messages,
-        temperature: 0.7,
-        maxTokens: 4000,
+        temperature: config.temperature,
+        maxTokens: config.maxTokens,
       );
 
       setState(() {
@@ -96,6 +123,12 @@ class _DistillDialogState extends State<DistillDialog> {
   }
 
   String _buildSystemPrompt() {
+    // 如果选择了技能，使用技能的 distillPrompt
+    if (_selectedSkill != null && _selectedSkill!.distillPrompt != null) {
+      return _selectedSkill!.distillPrompt!;
+    }
+    
+    // 默认提示词
     return '''你是一个专业的小说写作助手。请根据用户选择的操作类型，对提供的文本进行处理。
 
 处理类型包括：
@@ -116,7 +149,6 @@ class _DistillDialogState extends State<DistillDialog> {
 
   void _copyResult() {
     if (_outputController.text.isNotEmpty) {
-      // 复制到剪贴板
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已复制到剪贴板')),
       );
@@ -174,6 +206,43 @@ class _DistillDialogState extends State<DistillDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 技能选择
+                    Row(
+                      children: [
+                        const Text('使用技能：', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButton<Skill?>(
+                            value: _selectedSkill,
+                            isExpanded: true,
+                            hint: const Text('选择技能'),
+                            items: [
+                              const DropdownMenuItem<Skill?>(
+                                value: null,
+                                child: Text('默认'),
+                              ),
+                              ..._skillService.allAvailableSkills
+                                  .where((s) => s.isInstalled || s.isBuiltIn)
+                                  .map((skill) {
+                                return DropdownMenuItem(
+                                  value: skill,
+                                  child: Row(
+                                    children: [
+                                      Text(skill.icon),
+                                      const SizedBox(width: 8),
+                                      Text(skill.name),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (skill) => setState(() => _selectedSkill = skill),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
                     // 处理类型选择
                     const Text('处理类型', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
@@ -298,6 +367,7 @@ Future<String?> showDistillDialog(
   BuildContext context, {
   String initialText = '',
   LlmClient? client,
+  LlmConfig? llmConfig,
 }) async {
   String? result;
   
@@ -306,6 +376,7 @@ Future<String?> showDistillDialog(
     builder: (context) => DistillDialog(
       initialText: initialText,
       client: client,
+      llmConfig: llmConfig,
       onComplete: (r) => result = r,
     ),
   );

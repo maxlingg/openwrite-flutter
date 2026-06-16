@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/novel_crawler_service.dart';
+import '../services/novel_service.dart';
+import '../models/novel.dart';
 
 /// 网络小说爬虫对话框
 class NovelCrawlerDialog extends StatefulWidget {
@@ -17,10 +19,17 @@ class NovelCrawlerDialog extends StatefulWidget {
 class _NovelCrawlerDialogState extends State<NovelCrawlerDialog> {
   final _urlController = TextEditingController();
   final _crawlerService = NovelCrawlerService();
+  final _novelService = NovelService();
   
   bool _isLoading = false;
+  bool _isImporting = false;
   String? _error;
   NovelInfo? _novelInfo;
+  
+  // 导入选项
+  bool _importAllChapters = true;
+  int _startChapter = 1;
+  int _endChapter = 0;
 
   @override
   void dispose() {
@@ -46,6 +55,7 @@ class _NovelCrawlerDialogState extends State<NovelCrawlerDialog> {
       setState(() {
         _novelInfo = info;
         _isLoading = false;
+        _endChapter = info.chapters.length;
       });
     } catch (e) {
       setState(() {
@@ -62,13 +72,125 @@ class _NovelCrawlerDialogState extends State<NovelCrawlerDialog> {
     }
   }
 
+  /// 导入到本地数据库
+  Future<void> _importToDatabase() async {
+    if (_novelInfo == null) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认导入'),
+        content: Text(
+          '是否将「${_novelInfo!.title}」导入到本地数据库？\n\n'
+          '将导入 ${_getChapterCount()} 章内容。\n'
+          '导入后可随时阅读和编辑。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确认导入'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed != true) return;
+
+    setState(() => _isImporting = true);
+    
+    try {
+      // 创建小说
+      final novelId = DateTime.now().millisecondsSinceEpoch.toString();
+      final now = DateTime.now();
+      
+      final novel = Novel(
+        id: novelId,
+        title: _novelInfo!.title,
+        description: _novelInfo!.description,
+        genre: 'other',
+        chapters: [],
+        characters: [],
+        createdAt: now,
+        updatedAt: now,
+      );
+      
+      await _novelService.insertNovel(novel);
+      
+      // 导入章节
+      final chapterCount = _getChapterCount();
+      for (int i = 0; i < chapterCount; i++) {
+        final chapterInfo = _novelInfo!.chapters[i];
+        
+        // 获取章节内容
+        String content = '';
+        try {
+          content = await _crawlerService.fetchChapterContent(chapterInfo.url);
+        } catch (e) {
+          // 如果获取失败，使用占位符
+          content = '（内容获取失败，请手动补充）';
+        }
+        
+        final chapter = Chapter(
+          id: '${novelId}_${i + 1}',
+          novelId: novelId,
+          title: chapterInfo.title,
+          content: content,
+          order: i + 1,
+          createdAt: now,
+          updatedAt: now,
+        );
+        
+        await _novelService.insertChapter(chapter);
+        
+        // 更新进度
+        if (mounted) {
+          setState(() {});
+        }
+      }
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入「${_novelInfo!.title}」，共 $chapterCount 章'),
+            action: SnackBarAction(
+              label: '查看',
+              onPressed: () {
+                // 导航到小说详情
+              },
+            ),
+          ),
+        );
+        Navigator.pop(context, novelId);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isImporting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败: $e')),
+        );
+      }
+    }
+  }
+
+  int _getChapterCount() {
+    if (!_importAllChapters) {
+      final end = _endChapter > 0 ? _endChapter : _novelInfo!.chapters.length;
+      return end - _startChapter + 1;
+    }
+    return _novelInfo!.chapters.length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Dialog(
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 700),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -116,7 +238,7 @@ class _NovelCrawlerDialogState extends State<NovelCrawlerDialog> {
                         prefixIcon: const Icon(Icons.link),
                         suffixIcon: IconButton(
                           icon: const Icon(Icons.search),
-                          onPressed: _isLoading ? null : _fetchNovel,
+                          onPressed: _isLoading || _isImporting ? null : _fetchNovel,
                         ),
                       ),
                       onSubmitted: (_) => _fetchNovel(),
@@ -162,8 +284,26 @@ class _NovelCrawlerDialogState extends State<NovelCrawlerDialog> {
                       const Center(child: Text('正在获取小说信息...')),
                     ],
 
+                    // 导入中
+                    if (_isImporting) ...[
+                      const SizedBox(height: 24),
+                      const Center(child: CircularProgressIndicator()),
+                      const SizedBox(height: 8),
+                      const Center(child: Text('正在导入章节，请稍候...')),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Text(
+                          '导入进度: ${_getChapterCount()} 章节',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: colorScheme.outline,
+                          ),
+                        ),
+                      ),
+                    ],
+
                     // 小说信息预览
-                    if (_novelInfo != null) ...[
+                    if (_novelInfo != null && !_isImporting) ...[
                       const SizedBox(height: 24),
                       const Divider(),
                       const SizedBox(height: 16),
@@ -187,7 +327,70 @@ class _NovelCrawlerDialogState extends State<NovelCrawlerDialog> {
                         ),
                       ],
 
+                      // 导入选项
                       if (_novelInfo!.chapters.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Text(
+                          '导入选项',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        
+                        // 全部章节开关
+                        SwitchListTile(
+                          title: const Text('导入全部章节'),
+                          subtitle: Text('共 ${_novelInfo!.chapters.length} 章'),
+                          value: _importAllChapters,
+                          onChanged: (value) {
+                            setState(() => _importAllChapters = value);
+                          },
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        
+                        // 章节范围选择
+                        if (!_importAllChapters) ...[
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  decoration: const InputDecoration(
+                                    labelText: '起始章节',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  controller: TextEditingController(text: _startChapter.toString()),
+                                  onChanged: (value) {
+                                    final num = int.tryParse(value);
+                                    if (num != null && num > 0) {
+                                      setState(() => _startChapter = num);
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: TextField(
+                                  decoration: const InputDecoration(
+                                    labelText: '结束章节',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  controller: TextEditingController(
+                                    text: _endChapter > 0 ? _endChapter.toString() : '',
+                                  ),
+                                  onChanged: (value) {
+                                    final num = int.tryParse(value);
+                                    if (num != null && num > 0) {
+                                      setState(() => _endChapter = num);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        
+                        // 章节列表预览
                         const SizedBox(height: 16),
                         const Text(
                           '章节列表预览',
@@ -248,10 +451,26 @@ class _NovelCrawlerDialogState extends State<NovelCrawlerDialog> {
                     child: const Text('取消'),
                   ),
                   const SizedBox(width: 8),
+                  if (_novelInfo != null && !_isImporting) ...[
+                    OutlinedButton.icon(
+                      onPressed: _import,
+                      icon: const Icon(Icons.copy),
+                      label: const Text('复制'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   FilledButton.icon(
-                    onPressed: _novelInfo == null ? null : _import,
-                    icon: const Icon(Icons.download),
-                    label: const Text('导入'),
+                    onPressed: _novelInfo == null || _isLoading || _isImporting 
+                        ? null 
+                        : _importToDatabase,
+                    icon: _isImporting 
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.download),
+                    label: const Text('导入数据库'),
                   ),
                 ],
               ),
