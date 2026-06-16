@@ -692,10 +692,13 @@ class _AITextToolSheetState extends State<AITextToolSheet> {
         model: config.model,
       );
 
-      final response = await client.chat([
-        LlmMessage.system(_systemPrompt),
-        LlmMessage.user(input),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system(_systemPrompt),
+          LlmMessage.user(input),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() {
         _outputController.text = response;
@@ -825,10 +828,13 @@ class _AIStyleTransferSheetState extends State<AIStyleTransferSheet> {
       final config = settings.llmConfig;
       final client = LlmClient(baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model);
 
-      final response = await client.chat([
-        LlmMessage.system('你是一个专业的小说写作助手。请将用户提供的文字转换为$_targetStyle风格，保持原文的核心内容，但改变表达方式、词汇和语气，使其符合$_targetStyle的特点。'),
-        LlmMessage.user(input),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system('你是一个专业的小说写作助手。请将用户提供的文字转换为$_targetStyle风格，保持原文的核心内容，但改变表达方式、词汇和语气，使其符合$_targetStyle的特点。'),
+          LlmMessage.user(input),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() {
         _outputController.text = response;
@@ -969,10 +975,13 @@ class _AIWritingSuggestionsScreenState extends State<AIWritingSuggestionsScreen>
 
       final prompt = _types[_selectedType]! + '\n\n' + _contextController.text;
 
-      final response = await client.chat([
-        LlmMessage.system('你是一个专业的小说写作助手。请提供具体、有创意的写作建议，每条建议用数字编号，简洁明了。'),
-        LlmMessage.user(prompt),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system('你是一个专业的小说写作助手。请提供具体、有创意的写作建议，每条建议用数字编号，简洁明了。'),
+          LlmMessage.user(prompt),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() {
         _suggestions = response.split('\n').where((s) => s.trim().isNotEmpty).toList();
@@ -1056,10 +1065,13 @@ class _AISceneGeneratorScreenState extends State<AISceneGeneratorScreen> {
 
       final prompt = '生成一个$_mood氛围的$_sceneType场景描写${_settingController.text.isNotEmpty ? '\n\n设定：${_settingController.text}' : ''}';
 
-      final response = await client.chat([
-        LlmMessage.system('你是一个专业的小说场景描写助手。请生成生动、细节丰富的场景描写，包括环境、声音、光线、气味等感官细节。'),
-        LlmMessage.user(prompt),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system('你是一个专业的小说场景描写助手。请生成生动、细节丰富的场景描写，包括环境、声音，光线，气味等感官细节。'),
+          LlmMessage.user(prompt),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() { _result = response; _isLoading = false; });
     } catch (e) {
@@ -1137,10 +1149,13 @@ class _AIDialogGeneratorScreenState extends State<AIDialogGeneratorScreen> {
       final config = settings.llmConfig;
       final client = LlmClient(baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model);
 
-      final response = await client.chat([
-        LlmMessage.system('你是一个专业的小说对话助手。请生成自然、生动的人物对话，用「角色名：对话内容」的格式。'),
-        LlmMessage.user('${_char1Controller.text}和${_char2Controller.text}的对话\n\n情境：${_contextController.text}'),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system('你是一个专业的小说对话助手。请生成自然、生动的人物对话，用「角色名：对话内容」的格式。'),
+          LlmMessage.user('${_char1Controller.text}和${_char2Controller.text}的对话\n\n情境：${_contextController.text}'),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() { _result = response; _isLoading = false; });
     } catch (e) {
@@ -1186,7 +1201,7 @@ class _AIOutlineGeneratorScreenState extends State<AIOutlineGeneratorScreen> {
             TextField(controller: _genreController, decoration: const InputDecoration(border: OutlineInputBorder(), labelText: '题材类型', hintText: '如：仙侠、都市、悬疑')),
             const SizedBox(height: 16),
             Row(children: [
-              const Text('章节数量：$_chapterCount', style: TextStyle(fontWeight: FontWeight.w500)),
+              Text('章节数量：$_chapterCount', style: const TextStyle(fontWeight: FontWeight.w500)),
               Expanded(child: Slider(value: _chapterCount.toDouble(), min: 5, max: 50, divisions: 45, onChanged: (v) => setState(() => _chapterCount = v.round()))),
             ]),
             const SizedBox(height: 20),
@@ -1216,10 +1231,13 @@ class _AIOutlineGeneratorScreenState extends State<AIOutlineGeneratorScreen> {
       final config = settings.llmConfig;
       final client = LlmClient(baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model);
 
-      final response = await client.chat([
-        LlmMessage.system('你是一个专业的小说大纲策划助手。请为小说生成结构清晰、节奏合理的大纲，包括章节标题和简要内容概述。'),
-        LlmMessage.user('小说《${_titleController.text}》，题材：${_genreController.text}，共$_chapterCount章'),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system('你是一个专业的小说大纲策划助手。请为小说生成结构清晰、节奏合理的大纲，包括章节标题和简要内容概述。'),
+          LlmMessage.user('小说《${_titleController.text}》，题材：${_genreController.text}，共$_chapterCount章'),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() { _result = response; _isLoading = false; });
     } catch (e) {
@@ -1290,10 +1308,13 @@ class _AIWorldBuildingScreenState extends State<AIWorldBuildingScreen> {
 
       final prompt = '生成一个完整的$_worldType世界观设定，包括：地理环境、社会结构、修炼体系/科技水平、文化习俗、历史背景、主要势力等${_typeController.text.isNotEmpty ? '\n\n特殊设定：${_typeController.text}' : ''}';
 
-      final response = await client.chat([
-        LlmMessage.system('你是一个专业的世界观设定助手。请生成完整、合理、有深度的世界观设定。'),
-        LlmMessage.user(prompt),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system('你是一个专业的世界观设定助手。请生成完整、合理、有深度的世界观设定。'),
+          LlmMessage.user(prompt),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() { _result = response; _isLoading = false; });
     } catch (e) {
@@ -1364,10 +1385,13 @@ class _AICharacterGeneratorScreenState extends State<AICharacterGeneratorScreen>
 
       final prompt = '为一个$_role生成完整的角色设定，包括：姓名、年龄、外貌、性格背景故事、能力/特长、人物关系、成长弧线等${_baseController.text.isNotEmpty ? '\n\n基础设定：${_baseController.text}' : ''}';
 
-      final response = await client.chat([
-        LlmMessage.system('你是一个专业的角色设定助手。请生成有深度、有特色的角色设定。'),
-        LlmMessage.user(prompt),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system('你是一个专业的角色设定助手。请生成有深度、有特色的角色设定。'),
+          LlmMessage.user(prompt),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() { _result = response; _isLoading = false; });
     } catch (e) {
@@ -1439,10 +1463,13 @@ class _AIInspirationScreenState extends State<AIInspirationScreen> {
       final config = settings.llmConfig;
       final client = LlmClient(baseUrl: config.baseUrl, apiKey: config.apiKey, model: config.model);
 
-      final response = await client.chat([
-        LlmMessage.system('你是一个富有创意的写作灵感提供者。请提供有趣、独特、有创意的写作灵感，可以是情节构思、人物设定、世界观碎片等。'),
-        LlmMessage.user('请为$_genre题材提供一个创作灵感火花，可以是一个独特的情节、一个有趣的人物设定，或是一个吸引人的世界观碎片。'),
-      ], temperature: config.temperature);
+      final response = await client.chat(
+        messages: [
+          LlmMessage.system('你是一个富有创意的写作灵感提供者。请提供有趣、独特、有创意的写作灵感，可以是情节构思、人物设定、世界观碎片等。'),
+          LlmMessage.user('请为$_genre题材提供一个创作灵感火花，可以是一个独特的情节、一个有趣的人物设定，或是一个吸引人的世界观碎片。'),
+        ],
+        temperature: config.temperature,
+      );
 
       setState(() { _result = response; _isLoading = false; });
     } catch (e) {

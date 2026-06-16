@@ -150,6 +150,21 @@ class LlmMessage {
     this.name,
   });
 
+  /// 创建系统消息
+  factory LlmMessage.system(String content) {
+    return LlmMessage(role: 'system', content: content);
+  }
+
+  /// 创建用户消息
+  factory LlmMessage.user(String content) {
+    return LlmMessage(role: 'user', content: content);
+  }
+
+  /// 创建助手消息
+  factory LlmMessage.assistant(String content) {
+    return LlmMessage(role: 'assistant', content: content);
+  }
+
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> json = {
       'role': role,
