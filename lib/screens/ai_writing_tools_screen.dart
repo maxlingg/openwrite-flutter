@@ -363,7 +363,7 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
             PageDecoration.choiceChipGrid(items: _presets.keys.toList(), selectedItem: _selectedProvider, onSelected: (v) { setState(() { _selectedProvider = v; if (v != '自定义') _apiUrlController.text = _presets[v]!['url']!; _updateModelsFromPreset(); }); }),
             PageDecoration.divider(height: 16),
             PageDecoration.sectionTitle(context, 'API 地址'),
-            PageDecoration.inputField(controller: _apiUrlController, label: '', hint: 'https://api.openai.com/v1', enabled: _selectedProvider == '自定义', suffixIcon: _selectedProvider != '自定义' ? const Icon(Icons.lock, size: 18) : null),
+            PageDecoration.inputField(controller: _apiUrlController, label: '', hint: 'https://api.openai.com/v1', readOnly: _selectedProvider != '自定义', suffixIcon: _selectedProvider != '自定义' ? const Icon(Icons.lock, size: 18) : null),
             PageDecoration.divider(height: 16),
             PageDecoration.sectionTitle(context, 'API 密钥'),
             PageDecoration.inputField(controller: _apiKeyController, label: '', hint: 'sk-...', obscureText: true),

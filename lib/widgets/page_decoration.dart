@@ -215,6 +215,7 @@ class PageDecoration {
     String? Function(String?)? validator,
     void Function(String)? onChanged,
     bool readOnly = false,
+    bool enabled = true,
     VoidCallback? onTap,
   }) {
     return TextFormField(
@@ -223,6 +224,7 @@ class PageDecoration {
       obscureText: obscureText,
       keyboardType: keyboardType,
       readOnly: readOnly,
+      enabled: enabled,
       onTap: onTap,
       validator: validator,
       onChanged: onChanged,
