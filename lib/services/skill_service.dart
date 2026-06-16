@@ -31,6 +31,7 @@ class Skill {
   final double rating;
   final bool isInstalled;
   final bool isBuiltIn;
+  final bool isCreated;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -50,6 +51,7 @@ class Skill {
     this.rating = 5.0,
     this.isInstalled = false,
     this.isBuiltIn = false,
+    this.isCreated = false,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -70,6 +72,7 @@ class Skill {
     double? rating,
     bool? isInstalled,
     bool? isBuiltIn,
+    bool? isCreated,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -89,6 +92,7 @@ class Skill {
       rating: rating ?? this.rating,
       isInstalled: isInstalled ?? this.isInstalled,
       isBuiltIn: isBuiltIn ?? this.isBuiltIn,
+      isCreated: isCreated ?? this.isCreated,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -110,6 +114,7 @@ class Skill {
     'rating': rating,
     'isInstalled': isInstalled,
     'isBuiltIn': isBuiltIn,
+    'isCreated': isCreated,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -133,6 +138,7 @@ class Skill {
     rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
     isInstalled: json['isInstalled'] as bool? ?? false,
     isBuiltIn: json['isBuiltIn'] as bool? ?? false,
+    isCreated: json['isCreated'] as bool? ?? false,
     createdAt: DateTime.parse(json['createdAt'] as String),
     updatedAt: DateTime.parse(json['updatedAt'] as String),
   );
@@ -510,6 +516,38 @@ class SkillService {
 
   /// 卸载技能
   Future<void> uninstallSkill(String id) async {
+    _installedSkills.removeWhere((s) => s.id == id);
+    await _saveInstalledSkills();
+  }
+
+  /// 创建自定义技能
+  Future<void> createSkill(Skill skill) async {
+    final createdSkill = skill.copyWith(
+      isCreated: true,
+      isInstalled: true,
+      isBuiltIn: false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    
+    // 移除已存在的同名技能
+    _installedSkills.removeWhere((s) => s.id == createdSkill.id);
+    _installedSkills.add(createdSkill);
+    
+    await _saveInstalledSkills();
+  }
+
+  /// 删除自创技能
+  Future<void> deleteCreatedSkill(String id) async {
+    final skill = _installedSkills.firstWhere(
+      (s) => s.id == id,
+      orElse: () => throw Exception('技能不存在'),
+    );
+    
+    if (!skill.isCreated) {
+      throw Exception('只能删除自创技能');
+    }
+    
     _installedSkills.removeWhere((s) => s.id == id);
     await _saveInstalledSkills();
   }
