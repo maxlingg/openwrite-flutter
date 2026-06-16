@@ -701,7 +701,7 @@ class _AITextToolSheetState extends State<AITextToolSheet> {
       );
 
       setState(() {
-        _outputController.text = response;
+        _outputController.text = response.content;
         _isLoading = false;
       });
     } catch (e) {
@@ -837,7 +837,7 @@ class _AIStyleTransferSheetState extends State<AIStyleTransferSheet> {
       );
 
       setState(() {
-        _outputController.text = response;
+        _outputController.text = response.content;
         _isLoading = false;
       });
     } catch (e) {
@@ -984,7 +984,7 @@ class _AIWritingSuggestionsScreenState extends State<AIWritingSuggestionsScreen>
       );
 
       setState(() {
-        _suggestions = response.split('\n').where((s) => s.trim().isNotEmpty).toList();
+        _suggestions = response.content.split('\n').where((s) => s.trim().isNotEmpty).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -1073,7 +1073,7 @@ class _AISceneGeneratorScreenState extends State<AISceneGeneratorScreen> {
         temperature: config.temperature,
       );
 
-      setState(() { _result = response; _isLoading = false; });
+      setState(() { _result = response.content; _isLoading = false; });
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('生成失败: $e')));
@@ -1157,7 +1157,7 @@ class _AIDialogGeneratorScreenState extends State<AIDialogGeneratorScreen> {
         temperature: config.temperature,
       );
 
-      setState(() { _result = response; _isLoading = false; });
+      setState(() { _result = response.content; _isLoading = false; });
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('生成失败: $e')));
@@ -1239,7 +1239,7 @@ class _AIOutlineGeneratorScreenState extends State<AIOutlineGeneratorScreen> {
         temperature: config.temperature,
       );
 
-      setState(() { _result = response; _isLoading = false; });
+      setState(() { _result = response.content; _isLoading = false; });
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('生成失败: $e')));
@@ -1316,7 +1316,7 @@ class _AIWorldBuildingScreenState extends State<AIWorldBuildingScreen> {
         temperature: config.temperature,
       );
 
-      setState(() { _result = response; _isLoading = false; });
+      setState(() { _result = response.content; _isLoading = false; });
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('生成失败: $e')));
@@ -1393,7 +1393,7 @@ class _AICharacterGeneratorScreenState extends State<AICharacterGeneratorScreen>
         temperature: config.temperature,
       );
 
-      setState(() { _result = response; _isLoading = false; });
+      setState(() { _result = response.content; _isLoading = false; });
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('生成失败: $e')));
@@ -1471,7 +1471,7 @@ class _AIInspirationScreenState extends State<AIInspirationScreen> {
         temperature: config.temperature,
       );
 
-      setState(() { _result = response; _isLoading = false; });
+      setState(() { _result = response.content; _isLoading = false; });
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('获取失败: $e')));
