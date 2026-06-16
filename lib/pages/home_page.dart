@@ -10,6 +10,7 @@ import '../widgets/modern_fab.dart';
 import 'editor_page.dart';
 import '../screens/novel_list_screen.dart';
 import '../screens/chat_screen.dart';
+import '../screens/ai_writing_tools_screen.dart';
 import '../screens/settings_screen_new.dart';
 import '../providers/novel_provider.dart';
 
@@ -112,7 +113,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     if (index != _currentIndex) {
       setState(() => _currentIndex = index);
       if (index == 1) {
-        // 切换到小说页面时刷新
         context.read<NovelProvider>().loadNovels();
       }
     }
@@ -126,6 +126,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         children: [
           _buildNotesPage(),
           const NovelListScreen(),
+          const AIWritingToolsScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -141,6 +142,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             icon: Icon(Icons.auto_stories_outlined),
             selectedIcon: Icon(Icons.auto_stories),
             label: '小说',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_awesome_outlined),
+            selectedIcon: Icon(Icons.auto_awesome),
+            label: 'AI写作',
           ),
         ],
       ),

@@ -7,11 +7,41 @@ class LlmClient {
   final String apiKey;
   final String model;
   
+  // 静态配置存储
+  static String? _globalBaseUrl;
+  static String? _globalApiKey;
+  static String? _globalModel;
+
   LlmClient({
     required this.baseUrl,
     required this.apiKey,
     this.model = 'gpt-4o',
   });
+
+  /// 设置全局配置
+  static void setGlobalConfig({
+    required String baseUrl,
+    required String apiKey,
+    required String model,
+  }) {
+    _globalBaseUrl = baseUrl;
+    _globalApiKey = apiKey;
+    _globalModel = model;
+  }
+
+  /// 检查全局配置是否可用
+  static bool get globalConfigured =>
+      _globalApiKey != null && _globalApiKey!.isNotEmpty;
+
+  /// 获取全局配置的客户端
+  static LlmClient? getGlobalClient() {
+    if (!globalConfigured) return null;
+    return LlmClient(
+      baseUrl: _globalBaseUrl!,
+      apiKey: _globalApiKey!,
+      model: _globalModel ?? 'gpt-4o',
+    );
+  }
 
   /// 发送聊天请求
   Future<LlmResponse> chat({

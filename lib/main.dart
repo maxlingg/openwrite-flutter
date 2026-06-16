@@ -4,11 +4,12 @@ import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'providers/novel_provider.dart';
 import 'pages/home_page.dart';
+import 'screens/chat_screen.dart';
+import 'screens/ai_writing_tools_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 设置状态栏样式
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -39,6 +40,10 @@ class OpenWriteApp extends StatelessWidget {
             darkTheme: AppTheme.darkTheme,
             themeMode: themeNotifier.isDark ? ThemeMode.dark : ThemeMode.light,
             home: const HomePage(),
+            routes: {
+              '/chat': (context) => const ChatScreen(),
+              '/ai-tools': (context) => const AIWritingToolsScreen(),
+            },
           );
         },
       ),

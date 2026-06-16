@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'llm_client.dart';
 
 /// 应用设置服务 - 持久化存储
 class AppSettingsService {
@@ -54,6 +55,16 @@ class AppSettingsService {
   /// 更新 AI 配置
   Future<void> updateLlmConfig(LlmConfig config) async {
     _settings = _settings.copyWith(llmConfig: config);
+    
+    // 同时设置全局配置
+    if (config.isConfigured) {
+      LlmClient.setGlobalConfig(
+        baseUrl: config.baseUrl,
+        apiKey: config.apiKey,
+        model: config.model,
+      );
+    }
+    
     await saveSettings(_settings);
   }
 
