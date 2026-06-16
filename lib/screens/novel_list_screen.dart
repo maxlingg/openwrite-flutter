@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/novel_provider.dart';
 import '../models/novel.dart';
+import '../widgets/page_decoration.dart';
 import 'novel_editor_screen.dart';
 import 'novel_tools_screen.dart';
 
@@ -25,24 +26,23 @@ class _NovelListScreenState extends State<NovelListScreen> {
   @override
   Widget build(BuildContext context) {
     final novelProvider = context.watch<NovelProvider>();
-    final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('我的小说'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.build_outlined),
-            tooltip: '小说工具箱',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NovelToolsScreen()),
-              );
-            },
-          ),
-        ],
-      ),
+    return PageDecoration.standardScaffold(
+      context: context,
+      title: '我的小说',
+      showBackButton: true,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.build_outlined),
+          tooltip: '小说工具箱',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NovelToolsScreen()),
+            );
+          },
+        ),
+      ],
       body: novelProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : novelProvider.novels.isEmpty
@@ -57,37 +57,23 @@ class _NovelListScreenState extends State<NovelListScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.auto_stories_outlined, size: 40, color: colorScheme.onPrimaryContainer),
-          ),
-          const SizedBox(height: 16),
-          Text('暂无小说', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          Text('点击下方按钮创建你的第一部小说', style: Theme.of(context).textTheme.bodyMedium),
-        ],
-      ),
+    return PageDecoration.emptyState(
+      icon: Icons.auto_stories_outlined,
+      message: '暂无小说\n点击下方按钮创建你的第一部小说',
+      actionLabel: '创建小说',
+      onAction: () => _showCreateDialog(context),
     );
   }
 
   Widget _buildNovelList(BuildContext context, List<Novel> novels) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: novels.length,
-      itemBuilder: (context, index) {
-        final novel = novels[index];
-        return _NovelCard(novel: novel);
-      },
+    return PageDecoration.scrollContent(
+      child: Column(
+        children: novels.map((novel) {
+          return PageDecoration.card(
+            child: _NovelCard(novel: novel),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -103,13 +89,10 @@ class _NovelListScreenState extends State<NovelListScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
+              PageDecoration.inputField(
                 controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: '书名',
-                  hintText: '输入小说名称',
-                ),
-                autofocus: true,
+                label: '书名',
+                hint: '输入小说名称',
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
@@ -164,82 +147,82 @@ class _NovelCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => NovelEditorScreen(novelId: novel.id),
-            ),
-          );
-        },
-        onLongPress: () => _showOptionsMenu(context),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NovelEditorScreen(novelId: novel.id),
+          ),
+        );
+      },
+      onLongPress: () => _showOptionsMenu(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题行
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      novel.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+              Expanded(
+                child: Text(
+                  novel.title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  _buildStatusChip(context),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _buildInfoChip(Icons.category_outlined, NovelGenre.getName(novel.genre)),
-                  const SizedBox(width: 12),
-                  _buildInfoChip(Icons.text_fields_rounded, '${novel.totalWordCount} 字'),
-                  const SizedBox(width: 12),
-                  _buildInfoChip(Icons.library_books_outlined, '${novel.chapterCount} 章'),
-                ],
-              ),
-              if (novel.description.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  novel.description,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.update_outlined, size: 14, color: colorScheme.outline),
-                  const SizedBox(width: 4),
-                  Text(
-                    '更新于 ${_formatDate(novel.updatedAt)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.outline,
-                    ),
-                  ),
-                ],
+              ),
+              _buildStatusChip(context),
+            ],
+          ),
+          PageDecoration.divider(height: 12),
+          
+          // 信息标签行
+          Row(
+            children: [
+              _buildInfoChip(Icons.category_outlined, NovelGenre.getName(novel.genre)),
+              const SizedBox(width: 12),
+              _buildInfoChip(Icons.text_fields_rounded, '${novel.totalWordCount} 字'),
+              const SizedBox(width: 12),
+              _buildInfoChip(Icons.library_books_outlined, '${novel.chapterCount} 章'),
+            ],
+          ),
+          
+          // 描述
+          if (novel.description.isNotEmpty) ...[
+            PageDecoration.divider(height: 12),
+            Text(
+              novel.description,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          
+          // 更新时间
+          PageDecoration.divider(height: 12),
+          Row(
+            children: [
+              Icon(Icons.update_outlined, size: 14, color: colorScheme.outline),
+              const SizedBox(width: 4),
+              Text(
+                '更新于 ${_formatDate(novel.updatedAt)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.outline,
+                ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildStatusChip(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     Color bgColor;
     String label;
     
@@ -253,7 +236,7 @@ class _NovelCard extends StatelessWidget {
         label = '暂停';
         break;
       default:
-        bgColor = colorScheme.primary;
+        bgColor = Theme.of(context).colorScheme.primary;
         label = '创作中';
     }
 
@@ -291,6 +274,9 @@ class _NovelCard extends StatelessWidget {
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const SizedBox(height: 20),
+          Text('《${novel.title}》', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 20),
           ListTile(
             leading: const Icon(Icons.edit_outlined),
             title: const Text('编辑小说'),
@@ -325,6 +311,7 @@ class _NovelCard extends StatelessWidget {
               }
             },
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );

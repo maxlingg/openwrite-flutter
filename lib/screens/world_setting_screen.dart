@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/novel.dart';
+import '../widgets/page_decoration.dart';
 
 /// 世界观设定页面
 class WorldSettingScreen extends StatefulWidget {
@@ -69,76 +70,94 @@ class _WorldSettingScreenState extends State<WorldSettingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('世界观设定'),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildTextField(
-            controller: _timePeriodController,
-            label: '时代背景',
-            hint: '如：远古时代、现代社会、未来世界',
-            icon: Icons.history,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _locationController,
-            label: '地理环境',
-            hint: '如：中原大陆、九州世界、星际帝国',
-            icon: Icons.public,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _cultureController,
-            label: '文化风俗',
-            hint: '宗教信仰、节日习俗、社会风貌',
-            icon: Icons.temple_buddhist,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _magicSystemController,
-            label: '力量体系',
-            hint: '如：修仙境界、魔法等级、异能觉醒',
-            icon: Icons.auto_awesome,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _politicsController,
-            label: '政治格局',
-            hint: '如：皇权专制、民主共和、宗门林立',
-            icon: Icons.account_balance,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _economyController,
-            label: '经济体系',
-            hint: '货币制度、贸易方式、资源分布',
-            icon: Icons.attach_money,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _technologyController,
-            label: '科技/技艺',
-            hint: '如：炼器炼丹、机关阵法、星际科技',
-            icon: Icons.science,
-          ),
-          const SizedBox(height: 16),
-          _buildTextField(
-            controller: _descriptionController,
-            label: '世界简介',
-            hint: '对这个世界的整体描述...',
-            icon: Icons.description,
-            maxLines: 5,
-          ),
-        ],
+    return PageDecoration.standardScaffold(
+      context: context,
+      title: '世界观设定',
+      showBackButton: true,
+      actions: [
+        TextButton(
+          onPressed: _save,
+          child: const Text('保存'),
+        ),
+      ],
+      body: PageDecoration.scrollContent(
+        child: Column(
+          children: [
+            // 时代背景
+            _buildTextField(
+              controller: _timePeriodController,
+              label: '时代背景',
+              hint: '如：远古时代、现代社会、未来世界',
+              icon: Icons.history,
+            ),
+            PageDecoration.divider(height: 16),
+            
+            // 地理环境
+            _buildTextField(
+              controller: _locationController,
+              label: '地理环境',
+              hint: '如：中原大陆、九州世界、星际帝国',
+              icon: Icons.public,
+            ),
+            PageDecoration.divider(height: 16),
+            
+            // 文化风俗
+            _buildTextField(
+              controller: _cultureController,
+              label: '文化风俗',
+              hint: '宗教信仰、节日习俗、社会风貌',
+              icon: Icons.temple_buddhist,
+            ),
+            PageDecoration.divider(height: 16),
+            
+            // 力量体系
+            _buildTextField(
+              controller: _magicSystemController,
+              label: '力量体系',
+              hint: '如：修仙境界、魔法等级、异能觉醒',
+              icon: Icons.auto_awesome,
+            ),
+            PageDecoration.divider(height: 16),
+            
+            // 政治格局
+            _buildTextField(
+              controller: _politicsController,
+              label: '政治格局',
+              hint: '如：皇权专制、民主共和、宗门林立',
+              icon: Icons.account_balance,
+            ),
+            PageDecoration.divider(height: 16),
+            
+            // 经济体系
+            _buildTextField(
+              controller: _economyController,
+              label: '经济体系',
+              hint: '货币制度、贸易方式、资源分布',
+              icon: Icons.attach_money,
+            ),
+            PageDecoration.divider(height: 16),
+            
+            // 科技/技艺
+            _buildTextField(
+              controller: _technologyController,
+              label: '科技/技艺',
+              hint: '如：炼器炼丹、机关阵法、星际科技',
+              icon: Icons.science,
+            ),
+            PageDecoration.divider(height: 16),
+            
+            // 世界简介
+            _buildTextField(
+              controller: _descriptionController,
+              label: '世界简介',
+              hint: '对这个世界的整体描述...',
+              icon: Icons.description,
+              maxLines: 5,
+            ),
+            
+            PageDecoration.divider(height: 40),
+          ],
+        ),
       ),
     );
   }

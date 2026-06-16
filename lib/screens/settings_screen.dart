@@ -9,6 +9,7 @@ import '../services/import_export_service.dart';
 import '../services/recycle_bin_service.dart';
 import '../services/bookmark_service.dart';
 import '../models/note.dart';
+import '../widgets/page_decoration.dart';
 
 /// 设置页面
 class SettingsScreen extends StatelessWidget {
@@ -16,152 +17,147 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final notesProvider = context.watch<NotesProvider>();
     final novelProvider = context.watch<NovelProvider>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('设置'),
-      ),
-      body: ListView(
-        children: [
-          // 统计卡片
-          Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [colorScheme.primaryContainer, colorScheme.primaryContainer.withOpacity(0.7)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(context, icon: Icons.article_outlined, value: '${notesProvider.notesCount}', label: '笔记'),
-                _buildStatItem(context, icon: Icons.text_fields_rounded, value: _formatWordCount(notesProvider.totalWordCount), label: '字数'),
-                _buildStatItem(context, icon: Icons.book_outlined, value: '${novelProvider.novels.length}', label: '小说'),
+    return PageDecoration.standardScaffold(
+      context: context,
+      title: '设置',
+      showBackButton: true,
+      body: PageDecoration.scrollContent(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 统计卡片
+            PageDecoration.statsRow(
+              context,
+              items: [
+                StatItem(
+                  icon: Icons.article_outlined,
+                  value: '${notesProvider.notesCount}',
+                  label: '笔记',
+                ),
+                StatItem(
+                  icon: Icons.text_fields_rounded,
+                  value: _formatWordCount(notesProvider.totalWordCount),
+                  label: '字数',
+                ),
+                StatItem(
+                  icon: Icons.book_outlined,
+                  value: '${novelProvider.novels.length}',
+                  label: '小说',
+                ),
               ],
             ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // 外观设置
-          _buildSectionTitle(context, '外观'),
-          _buildThemeTile(context),
-          const Divider(height: 32),
-          
-          // 数据管理
-          _buildSectionTitle(context, '数据管理'),
-          _buildListTile(
-            context,
-            icon: Icons.cloud_upload_outlined,
-            title: '导出数据',
-            subtitle: '导出笔记为 JSON 或 ZIP',
-            onTap: () => _showExportDialog(context),
-          ),
-          _buildListTile(
-            context,
-            icon: Icons.cloud_download_outlined,
-            title: '导入数据',
-            subtitle: '从 JSON 或 ZIP 恢复笔记',
-            onTap: () => _showImportDialog(context),
-          ),
-          _buildListTile(
-            context,
-            icon: Icons.sync_outlined,
-            title: 'WebDav 同步',
-            subtitle: '配置云端同步',
-            onTap: () => _showWebDavDialog(context),
-          ),
-          _buildListTile(
-            context,
-            icon: Icons.backup_outlined,
-            title: '自动备份',
-            subtitle: '定期备份到本地',
-            onTap: () => _showBackupDialog(context),
-          ),
-          const Divider(height: 32),
-          
-          // 书签收藏
-          _buildSectionTitle(context, '书签收藏'),
-          _buildListTile(
-            context,
-            icon: Icons.bookmark_outline,
-            title: '我的书签',
-            subtitle: '查看收藏的笔记和章节',
-            onTap: () => _showBookmarksDialog(context),
-          ),
-          const Divider(height: 32),
-          
-          // 回收站
-          _buildSectionTitle(context, '回收站'),
-          _buildListTile(
-            context,
-            icon: Icons.delete_outline_rounded,
-            title: '回收站',
-            subtitle: '查看已删除的笔记',
-            onTap: () => _showRecycleBinDialog(context),
-          ),
-          const Divider(height: 32),
-          
-          // 关于
-          _buildSectionTitle(context, '关于'),
-          _buildListTile(
-            context,
-            icon: Icons.info_outline_rounded,
-            title: '关于墨韵笔记',
-            subtitle: '版本 1.2.2',
-            onTap: () => _showAboutDialog(context),
-          ),
-          _buildListTile(
-            context,
-            icon: Icons.code,
-            title: '开源项目',
-            subtitle: 'GitHub: openwrite-flutter',
-            onTap: () => _showSourceDialog(context),
-          ),
-          const SizedBox(height: 40),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(BuildContext context, {required IconData icon, required String value, required String label}) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        Icon(icon, size: 32, color: colorScheme.onPrimaryContainer),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: colorScheme.onPrimaryContainer,
-          ),
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: colorScheme.onPrimaryContainer.withOpacity(0.8),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(BuildContext context, String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary,
+            
+            PageDecoration.divider(height: 32),
+            
+            // 外观设置
+            PageDecoration.sectionTitle(context, '外观'),
+            _buildThemeTile(context),
+            
+            PageDecoration.divider(height: 32),
+            
+            // 数据管理
+            PageDecoration.sectionTitle(context, '数据管理'),
+            PageDecoration.card(
+              child: Column(
+                children: [
+                  _buildListTile(
+                    context,
+                    icon: Icons.cloud_upload_outlined,
+                    title: '导出数据',
+                    subtitle: '导出笔记为 JSON 或 ZIP',
+                    onTap: () => _showExportDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildListTile(
+                    context,
+                    icon: Icons.cloud_download_outlined,
+                    title: '导入数据',
+                    subtitle: '从 JSON 或 ZIP 恢复笔记',
+                    onTap: () => _showImportDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildListTile(
+                    context,
+                    icon: Icons.sync_outlined,
+                    title: 'WebDav 同步',
+                    subtitle: '配置云端同步',
+                    onTap: () => _showWebDavDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildListTile(
+                    context,
+                    icon: Icons.backup_outlined,
+                    title: '自动备份',
+                    subtitle: '定期备份到本地',
+                    onTap: () => _showBackupDialog(context),
+                    showDivider: false,
+                  ),
+                ],
+              ),
+            ),
+            
+            PageDecoration.divider(height: 32),
+            
+            // 书签收藏
+            PageDecoration.sectionTitle(context, '书签收藏'),
+            PageDecoration.card(
+              child: _buildListTile(
+                context,
+                icon: Icons.bookmark_outline,
+                title: '我的书签',
+                subtitle: '查看收藏的笔记和章节',
+                onTap: () => _showBookmarksDialog(context),
+                showDivider: false,
+              ),
+            ),
+            
+            PageDecoration.divider(height: 32),
+            
+            // 回收站
+            PageDecoration.sectionTitle(context, '回收站'),
+            PageDecoration.card(
+              child: _buildListTile(
+                context,
+                icon: Icons.delete_outline_rounded,
+                title: '回收站',
+                subtitle: '查看已删除的笔记',
+                onTap: () => _showRecycleBinDialog(context),
+                showDivider: false,
+              ),
+            ),
+            
+            PageDecoration.divider(height: 32),
+            
+            // 关于
+            PageDecoration.sectionTitle(context, '关于'),
+            PageDecoration.card(
+              child: Column(
+                children: [
+                  _buildListTile(
+                    context,
+                    icon: Icons.info_outline_rounded,
+                    title: '关于墨韵笔记',
+                    subtitle: '版本 1.2.2',
+                    onTap: () => _showAboutDialog(context),
+                  ),
+                  const Divider(height: 1),
+                  _buildListTile(
+                    context,
+                    icon: Icons.code,
+                    title: '开源项目',
+                    subtitle: 'GitHub: openwrite-flutter',
+                    onTap: () => _showSourceDialog(context),
+                    showDivider: false,
+                  ),
+                ],
+              ),
+            ),
+            
+            PageDecoration.divider(height: 40),
+          ],
         ),
       ),
     );
@@ -170,25 +166,18 @@ class SettingsScreen extends StatelessWidget {
   Widget _buildThemeTile(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10),
+    return PageDecoration.card(
+      child: PageDecoration.listTile(
+        icon: themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+        title: '深色模式',
+        subtitle: themeProvider.isDarkMode ? '已开启' : '已关闭',
+        trailing: Switch(
+          value: themeProvider.isDarkMode,
+          onChanged: (value) => themeProvider.toggleTheme(),
         ),
-        child: Icon(
-          themeProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
-          size: 22,
-        ),
+        onTap: () => themeProvider.toggleTheme(),
+        iconColor: Theme.of(context).colorScheme.primary,
       ),
-      title: const Text('深色模式'),
-      subtitle: Text(themeProvider.isDarkMode ? '已开启' : '已关闭'),
-      trailing: Switch(
-        value: themeProvider.isDarkMode,
-        onChanged: (value) => themeProvider.toggleTheme(),
-      ),
-      onTap: () => themeProvider.toggleTheme(),
     );
   }
 
@@ -198,21 +187,18 @@ class SettingsScreen extends StatelessWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    bool showDivider = true,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10),
+    return Column(
+      children: [
+        PageDecoration.listTile(
+          icon: icon,
+          title: title,
+          subtitle: subtitle,
+          onTap: onTap,
         ),
-        child: Icon(icon, size: 22),
-      ),
-      title: Text(title),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      trailing: Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
-      onTap: onTap,
+        if (showDivider) const Divider(height: 1),
+      ],
     );
   }
 
@@ -361,31 +347,27 @@ class SettingsScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
+              PageDecoration.inputField(
                 controller: urlController,
-                decoration: const InputDecoration(
-                  labelText: '服务器地址',
-                  hintText: 'https://dav.example.com',
-                ),
+                label: '服务器地址',
+                hint: 'https://dav.example.com',
               ),
               const SizedBox(height: 16),
-              TextField(
+              PageDecoration.inputField(
                 controller: usernameController,
-                decoration: const InputDecoration(labelText: '用户名'),
+                label: '用户名',
               ),
               const SizedBox(height: 16),
-              TextField(
+              PageDecoration.inputField(
                 controller: passwordController,
+                label: '密码',
                 obscureText: true,
-                decoration: const InputDecoration(labelText: '密码'),
               ),
               const SizedBox(height: 16),
-              TextField(
+              PageDecoration.inputField(
                 controller: basePathController,
-                decoration: const InputDecoration(
-                  labelText: '同步目录',
-                  hintText: '/OpenWrite',
-                ),
+                label: '同步目录',
+                hint: '/OpenWrite',
               ),
             ],
           ),
@@ -665,23 +647,9 @@ class _BookmarksContentState extends State<_BookmarksContent> with SingleTickerP
 
   Widget _buildBookmarkList(List<Bookmark> bookmarks, BookmarkType type) {
     if (bookmarks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.bookmark_border, size: 64, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 16),
-            Text(
-              '暂无书签',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '收藏笔记或章节后会在此显示',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
+      return PageDecoration.emptyState(
+        icon: Icons.bookmark_border,
+        message: '暂无书签\n收藏笔记或章节后会在此显示',
       );
     }
 
@@ -709,7 +677,6 @@ class _BookmarksContentState extends State<_BookmarksContent> with SingleTickerP
               },
             ),
             onTap: () {
-              // 导航到对应内容
               Navigator.pop(context);
             },
           ),
@@ -786,15 +753,9 @@ class _RecycleBinContentState extends State<_RecycleBinContent> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _items.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.delete_outline, size: 64, color: colorScheme.outline),
-                            const SizedBox(height: 16),
-                            Text('回收站为空', style: Theme.of(context).textTheme.bodyLarge),
-                          ],
-                        ),
+                    ? PageDecoration.emptyState(
+                        icon: Icons.delete_outline,
+                        message: '回收站为空',
                       )
                     : ListView.builder(
                         controller: widget.scrollController,

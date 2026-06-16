@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/novel_provider.dart';
 import '../models/novel.dart';
+import '../widgets/page_decoration.dart';
 
 /// 角色详情页面
 class CharacterDetailScreen extends StatefulWidget {
@@ -72,121 +73,129 @@ class _CharacterDetailScreenState extends State<CharacterDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return PopScope(
       canPop: !_hasChanges,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('角色设定'),
-          actions: [
-            if (_hasChanges)
-              TextButton.icon(
-                onPressed: _saveCharacter,
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('保存'),
+      child: PageDecoration.standardScaffold(
+        context: context,
+        title: '角色设定',
+        showBackButton: true,
+        actions: [
+          if (_hasChanges)
+            TextButton.icon(
+              onPressed: _saveCharacter,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('保存'),
+            ),
+          PopupMenuButton(
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('删除角色', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
               ),
-            PopupMenuButton(
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('删除角色', style: TextStyle(color: Colors.red)),
+            ],
+            onSelected: (value) async {
+              if (value == 'delete') {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('确认删除'),
+                    content: Text('确定要删除角色"${widget.character.name}"吗？'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除', style: TextStyle(color: Colors.red))),
                     ],
                   ),
-                ),
-              ],
-              onSelected: (value) async {
-                if (value == 'delete') {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('确认删除'),
-                      content: Text('确定要删除角色"${widget.character.name}"吗？'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-                        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除', style: TextStyle(color: Colors.red))),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true && mounted) {
-                    await context.read<NovelProvider>().deleteCharacter(widget.character.id, widget.novelId);
-                    if (mounted) Navigator.pop(context);
-                  }
+                );
+                if (confirmed == true && mounted) {
+                  await context.read<NovelProvider>().deleteCharacter(widget.character.id, widget.novelId);
+                  if (mounted) Navigator.pop(context);
                 }
-              },
-            ),
-          ],
-        ),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // 头像和名称
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: _getRoleColor(_role).withOpacity(0.2),
-                  child: Text(
-                    _nameController.text.isEmpty ? '?' : _nameController.text[0],
-                    style: TextStyle(fontSize: 32, color: _getRoleColor(_role)),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: _nameController,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                        decoration: const InputDecoration(labelText: '姓名', border: OutlineInputBorder()),
-                        onChanged: (_) => setState(() => _hasChanges = true),
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _role,
-                        decoration: const InputDecoration(labelText: '角色定位'),
-                        items: CharacterRole.names.entries.map((e) {
-                          return DropdownMenuItem(value: e.key, child: Text(e.value));
-                        }).toList(),
-                        onChanged: (value) {
-                          if (value != null) setState(() {
-                            _role = value;
-                            _hasChanges = true;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            
-            // 外貌特征
-            _buildSection('外貌特征', _appearanceController, Icons.person_outline),
-            const SizedBox(height: 16),
-            
-            // 性格特点
-            _buildSection('性格特点', _personalityController, Icons.psychology_outlined),
-            const SizedBox(height: 16),
-            
-            // 角色背景
-            _buildSection('角色背景', _backstoryController, Icons.history_edu_outlined, maxLines: 6),
-            const SizedBox(height: 16),
-            
-            // 动机目标
-            _buildSection('动机目标', _motivationController, Icons.flag_outlined, maxLines: 4),
-            const SizedBox(height: 16),
-            
-            // 备注
-            _buildSection('备注', _descriptionController, Icons.note_outlined, maxLines: 4),
-          ],
+              }
+            },
+          ),
+        ],
+        body: PageDecoration.scrollContent(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 头像和名称
+              _buildHeader(),
+              
+              PageDecoration.divider(height: 24),
+              
+              // 外貌特征
+              _buildSection('外貌特征', _appearanceController, Icons.person_outline),
+              PageDecoration.divider(height: 16),
+              
+              // 性格特点
+              _buildSection('性格特点', _personalityController, Icons.psychology_outlined),
+              PageDecoration.divider(height: 16),
+              
+              // 角色背景
+              _buildSection('角色背景', _backstoryController, Icons.history_edu_outlined, maxLines: 6),
+              PageDecoration.divider(height: 16),
+              
+              // 动机目标
+              _buildSection('动机目标', _motivationController, Icons.flag_outlined, maxLines: 4),
+              PageDecoration.divider(height: 16),
+              
+              // 备注
+              _buildSection('备注', _descriptionController, Icons.note_outlined, maxLines: 4),
+              
+              PageDecoration.divider(height: 80),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 头像
+        CircleAvatar(
+          radius: 40,
+          backgroundColor: _getRoleColor(_role).withOpacity(0.2),
+          child: Text(
+            _nameController.text.isEmpty ? '?' : _nameController.text[0],
+            style: TextStyle(fontSize: 32, color: _getRoleColor(_role)),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            children: [
+              PageDecoration.inputField(
+                controller: _nameController,
+                label: '姓名',
+                onChanged: (_) => setState(() => _hasChanges = true),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _role,
+                decoration: const InputDecoration(labelText: '角色定位'),
+                items: CharacterRole.names.entries.map((e) {
+                  return DropdownMenuItem(value: e.key, child: Text(e.value));
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() {
+                    _role = value;
+                    _hasChanges = true;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
