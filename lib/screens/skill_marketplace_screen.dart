@@ -669,7 +669,7 @@ class _SkillMarketplaceScreenState extends State<SkillMarketplaceScreen>
             imported++;
           } catch (_) {}
         }
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 $importd 个技能')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入 $imported 个技能')));
       } else {
         final newSkill = _parseImportedSkill(data);
         await _skillService.createSkill(newSkill);

@@ -116,8 +116,9 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadHistory() async {
-    if (_historyService == null) return;
-    _sessions = await _historyService.loadSessions();
+    final historyService = _historyService;
+    if (historyService == null) return;
+    _sessions = await historyService.loadSessions();
     setState(() {});
   }
 

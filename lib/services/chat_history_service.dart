@@ -12,12 +12,13 @@ class HistoryMessage {
   final String? skillId;
 
   HistoryMessage({
-    required this.id,
+    String? id,
     required this.role,
     required this.content,
     DateTime? timestamp,
     this.skillId,
-  }) : timestamp = timestamp ?? DateTime.now();
+  })  : id = id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -46,14 +47,15 @@ class ChatSession {
   final DateTime updatedAt;
 
   ChatSession({
-    required this.id,
+    String? id,
     required this.title,
     this.messages = const [],
     this.skillId,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) : createdAt = createdAt ?? DateTime.now(),
-       updatedAt = updatedAt ?? DateTime.now();
+  })  : id = id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -97,21 +99,24 @@ class ChatSession {
 /// 聊天历史服务
 class ChatHistoryService {
   static const _sessionsFile = 'chat_sessions.json';
-  final String? _dataPath;
+  String? _dataPath;
   List<ChatSession> _sessions = [];
 
-  ChatHistoryService([this._dataPath]);
+  ChatHistoryService();
 
   static Future<ChatHistoryService> create() async {
+    final service = ChatHistoryService();
     final dir = await getApplicationDocumentsDirectory();
-    return ChatHistoryService(dir.path);
+    service._dataPath = dir.path;
+    return service;
   }
 
   /// 加载所有会话
   Future<List<ChatSession>> loadSessions() async {
-    if (_dataPath == null) return [];
+    final dataPath = _dataPath;
+    if (dataPath == null) return [];
     try {
-      final file = File(path.join(_dataPath, _sessionsFile));
+      final file = File(path.join(dataPath, _sessionsFile));
       if (await file.exists()) {
         final content = await file.readAsString();
         final list = jsonDecode(content) as List;
@@ -126,9 +131,10 @@ class ChatHistoryService {
 
   /// 保存所有会话
   Future<void> _saveSessions() async {
-    if (_dataPath == null) return;
+    final dataPath = _dataPath;
+    if (dataPath == null) return;
     try {
-      final file = File(path.join(_dataPath, _sessionsFile));
+      final file = File(path.join(dataPath, _sessionsFile));
       await file.writeAsString(jsonEncode(_sessions.map((s) => s.toJson()).toList()));
     } catch (_) {}
   }
@@ -139,7 +145,6 @@ class ChatHistoryService {
     String title = '新对话',
   }) async {
     final session = ChatSession(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
       title: title,
       skillId: skillId,
     );
