@@ -389,16 +389,36 @@ class _AISettingsSheet extends StatefulWidget {
 }
 
 class _AISettingsSheetState extends State<_AISettingsSheet> {
+  final _apiUrlController = TextEditingController();
   final _apiKeyController = TextEditingController();
   String _selectedProvider = 'OpenAI';
   String _model = 'gpt-4o';
   double _temperature = 0.7;
+  bool _isLoadingModels = false;
+  bool _isTesting = false;
+  List<String> _availableModels = [];
 
-  final Map<String, Map<String, String>> _providers = {
-    'OpenAI': {'url': 'https://api.openai.com/v1', 'defaultModel': 'gpt-4o', 'models': 'gpt-4o,gpt-4o-mini,gpt-3.5-turbo'},
-    'Kilo AI': {'url': 'https://api.kilo.ai/api', 'defaultModel': 'meta-llama/Llama-3-70b-chat-hf', 'models': 'meta-llama/Llama-3-70b-chat-hf,meta-llama/Llama-3-8b-chat-hf'},
-    'OpenRouter': {'url': 'https://openrouter.ai/api/v1', 'defaultModel': 'anthropic/claude-3.5-sonnet', 'models': 'anthropic/claude-3.5-sonnet,google/gemini-pro,openai/gpt-4o'},
-    'Claude': {'url': 'https://api.anthropic.com', 'defaultModel': 'claude-3-5-sonnet-20240620', 'models': 'claude-3-5-sonnet-20240620,claude-3-opus-20240229,claude-3-sonnet-20240229'},
+  final Map<String, Map<String, String>> _presets = {
+    'OpenAI': {
+      'url': 'https://api.openai.com/v1',
+      'models': 'gpt-4o,gpt-4o-mini,gpt-4-turbo,gpt-3.5-turbo',
+    },
+    'Kilo AI': {
+      'url': 'https://api.kilo.ai/api',
+      'models': 'meta-llama/Llama-3-70b-chat-hf,meta-llama/Llama-3-8b-chat-hf',
+    },
+    'OpenRouter': {
+      'url': 'https://openrouter.ai/api/v1',
+      'models': 'anthropic/claude-3.5-sonnet,google/gemini-pro,openai/gpt-4o',
+    },
+    'Claude (Anthropic)': {
+      'url': 'https://api.anthropic.com',
+      'models': 'claude-3-5-sonnet-20240620,claude-3-opus-20240229,claude-3-sonnet-20240229',
+    },
+    '自定义': {
+      'url': '',
+      'models': '',
+    },
   };
 
   @override
@@ -410,125 +430,331 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
   Future<void> _loadSettings() async {
     final settings = await AppSettingsService.create();
     final config = settings.llmConfig;
+    _apiUrlController.text = config.baseUrl;
     _apiKeyController.text = config.apiKey;
     setState(() {
       _selectedProvider = _getProviderFromUrl(config.baseUrl);
       _model = config.model;
       _temperature = config.temperature;
+      _updateModelsFromPreset();
     });
+  }
+
+  void _updateModelsFromPreset() {
+    final preset = _presets[_selectedProvider];
+    if (preset != null && preset['models']!.isNotEmpty) {
+      _availableModels = preset['models']!.split(',');
+      if (!_availableModels.contains(_model)) {
+        _model = _availableModels.isNotEmpty ? _availableModels[0] : '';
+      }
+    } else {
+      _availableModels = [];
+    }
   }
 
   String _getProviderFromUrl(String url) {
     if (url.contains('openai.com')) return 'OpenAI';
     if (url.contains('kilo.ai')) return 'Kilo AI';
     if (url.contains('openrouter')) return 'OpenRouter';
-    if (url.contains('anthropic')) return 'Claude';
+    if (url.contains('anthropic')) return 'Claude (Anthropic)';
     return 'OpenAI';
   }
 
   @override
   void dispose() {
+    _apiUrlController.dispose();
     _apiKeyController.dispose();
     super.dispose();
+  }
+
+  /// 从 API 获取可用模型列表
+  Future<void> _fetchModels() async {
+    final apiUrl = _apiUrlController.text.trim();
+    final apiKey = _apiKeyController.text.trim();
+
+    if (apiUrl.isEmpty || apiKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先输入 API 地址和密钥')),
+      );
+      return;
+    }
+
+    setState(() => _isLoadingModels = true);
+
+    try {
+      final client = LlmClient(baseUrl: apiUrl, apiKey: apiKey, model: '');
+      final models = await client.fetchModels();
+      
+      setState(() {
+        _availableModels = models;
+        _isLoadingModels = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('获取到 ${models.length} 个模型')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoadingModels = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('获取模型失败: $e')),
+        );
+      }
+    }
+  }
+
+  /// 测试连接
+  Future<void> _testConnection() async {
+    final apiUrl = _apiUrlController.text.trim();
+    final apiKey = _apiKeyController.text.trim();
+
+    if (apiUrl.isEmpty || apiKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先输入 API 地址和密钥')),
+      );
+      return;
+    }
+
+    setState(() => _isTesting = true);
+
+    try {
+      final client = LlmClient(baseUrl: apiUrl, apiKey: apiKey, model: _model);
+      await client.testConnection();
+      
+      setState(() => _isTesting = false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('连接成功！')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isTesting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('连接失败: $e')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final models = _providers[_selectedProvider]!['models']!.split(',');
 
     return Container(
       padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('AI 设置', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // 服务商选择
-          const Text('服务商', style: TextStyle(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _selectedProvider,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-            items: _providers.keys.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-            onChanged: (v) {
-              setState(() {
-                _selectedProvider = v!;
-                _model = _providers[v]!['defaultModel']!;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-
-          // API Key
-          const Text('API Key', style: TextStyle(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _apiKeyController,
-            obscureText: true,
-            decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '输入你的 API Key'),
-          ),
-          const SizedBox(height: 16),
-
-          // 模型选择
-          const Text('模型', style: TextStyle(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _model,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-            items: models.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-            onChanged: (v) => setState(() => _model = v!),
-          ),
-          const SizedBox(height: 16),
-
-          // Temperature
-          Row(
-            children: [
-              const Text('Temperature', style: TextStyle(fontWeight: FontWeight.w500)),
-              const Spacer(),
-              Text(_temperature.toStringAsFixed(1)),
-            ],
-          ),
-          Slider(
-            value: _temperature,
-            min: 0.0,
-            max: 2.0,
-            divisions: 20,
-            onChanged: (v) => setState(() => _temperature = v),
-          ),
-          const SizedBox(height: 20),
-
-          // 保存按钮
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: _saveSettings,
-              child: const Text('保存设置'),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('AI 设置', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+
+            // 服务商预设
+            const Text('服务商预设', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _presets.keys.map((name) {
+                final isSelected = _selectedProvider == name;
+                return ChoiceChip(
+                  label: Text(name),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _selectedProvider = name;
+                        if (name != '自定义') {
+                          _apiUrlController.text = _presets[name]!['url']!;
+                        }
+                        _updateModelsFromPreset();
+                      });
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // API 地址
+            Row(
+              children: [
+                const Text('API 地址', style: TextStyle(fontWeight: FontWeight.w500)),
+                const Spacer(),
+                if (_selectedProvider != '自定义')
+                  Text(
+                    _presets[_selectedProvider]!['url']!,
+                    style: TextStyle(fontSize: 12, color: colorScheme.outline),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _apiUrlController,
+              enabled: _selectedProvider == '自定义',
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                hintText: 'https://api.openai.com/v1',
+                suffixIcon: _selectedProvider == '自定义'
+                    ? null
+                    : Icon(Icons.lock, color: colorScheme.outline, size: 18),
+              ),
+              onChanged: (_) => setState(() => _selectedProvider = '自定义'),
+            ),
+            const SizedBox(height: 16),
+
+            // API 密钥
+            const Text('API 密钥', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _apiKeyController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'sk-...',
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 获取模型按钮
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isLoadingModels ? null : _fetchModels,
+                icon: _isLoadingModels
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.refresh),
+                label: Text(_isLoadingModels ? '获取中...' : '获取可用模型'),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 模型选择
+            const Text('选择模型', style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            if (_availableModels.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '点击上方按钮获取可用模型',
+                  style: TextStyle(color: colorScheme.outline),
+                ),
+              )
+            else
+              Container(
+                constraints: const BoxConstraints(maxHeight: 150),
+                decoration: BoxDecoration(
+                  border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _availableModels.length,
+                  itemBuilder: (context, index) {
+                    final model = _availableModels[index];
+                    return RadioListTile<String>(
+                      title: Text(model, style: const TextStyle(fontSize: 13)),
+                      value: model,
+                      groupValue: _model,
+                      onChanged: (v) => setState(() => _model = v!),
+                      dense: true,
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 16),
+
+            // Temperature
+            Row(
+              children: [
+                const Text('Temperature', style: TextStyle(fontWeight: FontWeight.w500)),
+                const Spacer(),
+                Text(_temperature.toStringAsFixed(1)),
+              ],
+            ),
+            Slider(
+              value: _temperature,
+              min: 0.0,
+              max: 2.0,
+              divisions: 20,
+              onChanged: (v) => setState(() => _temperature = v),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Temperature 控制输出的随机性。较低值（如 0.2）产生更确定的回答，较高值（如 1.0）产生更有创意的回答。',
+              style: TextStyle(fontSize: 11, color: colorScheme.outline),
+            ),
+            const SizedBox(height: 20),
+
+            // 测试连接按钮
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isTesting ? null : _testConnection,
+                icon: _isTesting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.wifi_tethering),
+                label: Text(_isTesting ? '测试中...' : '测试连接'),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 保存按钮
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _saveSettings,
+                child: const Text('保存设置'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Future<void> _saveSettings() async {
+    final apiUrl = _apiUrlController.text.trim();
+    final apiKey = _apiKeyController.text.trim();
+
+    if (apiUrl.isEmpty || apiKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入 API 地址和密钥')),
+      );
+      return;
+    }
+
+    if (_model.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请选择或获取模型')),
+      );
+      return;
+    }
+
     final settings = await AppSettingsService.create();
     final config = LlmConfig(
-      baseUrl: _providers[_selectedProvider]!['url']!,
-      apiKey: _apiKeyController.text,
+      baseUrl: apiUrl,
+      apiKey: apiKey,
       model: _model,
       temperature: _temperature,
     );
     await settings.updateLlmConfig(config);
-    
+
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('AI 设置已保存')));

@@ -128,13 +128,56 @@ class LlmClient {
   Future<bool> testConnection() async {
     try {
       final response = await chat(
-        messages: [LlmMessage(role: 'user', content: 'test')],
+        messages: [LlmMessage.system('You are a helpful assistant.'), LlmMessage.user('Say "OK" if you can hear me.')],
         maxTokens: 10,
       );
       return response.content.isNotEmpty;
     } catch (_) {
       return false;
     }
+  }
+
+  /// 获取可用模型列表
+  Future<List<String>> fetchModels() async {
+    try {
+      // 尝试 OpenAI 格式的 models API
+      final response = await http.get(
+        Uri.parse('$baseUrl/models'),
+        headers: {
+          'Authorization': 'Bearer $apiKey',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final models = data['data'] as List?;
+        if (models != null) {
+          return models
+              .map((m) => m['id'] as String?)
+              .where((id) => id != null && !id.contains('embeddings'))
+              .cast<String>()
+              .toList();
+        }
+      }
+      
+      // 如果上述失败，返回预设模型列表
+      return _getDefaultModels();
+    } catch (_) {
+      return _getDefaultModels();
+    }
+  }
+
+  List<String> _getDefaultModels() {
+    if (baseUrl.contains('openai.com')) {
+      return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'];
+    } else if (baseUrl.contains('anthropic')) {
+      return ['claude-3-5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229'];
+    } else if (baseUrl.contains('openrouter')) {
+      return ['anthropic/claude-3.5-sonnet', 'google/gemini-pro', 'openai/gpt-4o', 'meta-llama/Llama-3-70b-chat-hf'];
+    } else if (baseUrl.contains('kilo')) {
+      return ['meta-llama/Llama-3-70b-chat-hf', 'meta-llama/Llama-3-8b-chat-hf'];
+    }
+    return [];
   }
 }
 
