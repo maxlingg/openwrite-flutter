@@ -5,7 +5,7 @@ import '../services/memo_service.dart';
 import '../screens/webdav_sync_dialog.dart';
 import '../screens/recycle_bin_dialog.dart';
 import '../screens/memo_dialog.dart';
-import '../screens/skill_marketplace_dialog.dart';
+import '../screens/skill_marketplace_screen.dart';
 import '../screens/card_draw_dialog.dart';
 import '../screens/novel_crawler_dialog.dart';
 import '../screens/distill_dialog.dart';
@@ -50,7 +50,7 @@ class SettingsScreen extends StatelessWidget {
             icon: Icons.store_outlined,
             title: '技能市场',
             subtitle: 'AI 技能模板和插件',
-            onTap: () => showSkillMarketplaceDialog(context),
+            onTap: () => showSkillMarketplace(context),
           ),
 
           const Divider(),
