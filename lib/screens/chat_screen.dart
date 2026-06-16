@@ -23,14 +23,15 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
   final SkillService _skillService = SkillService('');
-  final AppSettingsService _settingsService = AppSettingsService();
+  
+  AppSettingsService? _settingsService;
+  ChatHistoryService? _historyService;
   
   bool _isLoading = false;
   String? _error;
   bool _isConnected = false;
   bool _showSettings = false;
   bool _showHistory = false;
-  bool _isStreamMode = false;
   
   // LLM 配置
   LlmConfig _llmConfig = LlmConfig();
@@ -40,7 +41,6 @@ class _ChatScreenState extends State<ChatScreen> {
   String _currentSkillId = '';
   
   // 聊天历史
-  final ChatHistoryService _historyService = ChatHistoryService('');
   List<ChatSession> _sessions = [];
   ChatSession? _currentSession;
 
@@ -48,8 +48,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _setupEngine();
-    _loadSettings();
-    _loadHistory();
+    _initServices();
   }
 
   void _setupEngine() {
@@ -64,45 +63,49 @@ class _ChatScreenState extends State<ChatScreen> {
         // 保存消息到历史
         if (_currentSession != null && _chatEngine.messages.isNotEmpty) {
           final lastMessage = _chatEngine.messages.last;
-          _historyService.addMessage(
+          _historyService?.addMessage(
             _currentSession!.id,
-            ChatMessage(
+            HistoryMessage(
               id: lastMessage.id,
               role: lastMessage.role,
               content: lastMessage.content,
             ),
           );
         }
-      } else if (state.event == ChatEngineEvent.usage) {
-        // 记录使用量
       }
     });
   }
 
+  Future<void> _initServices() async {
+    _settingsService = await AppSettingsService.create();
+    _historyService = await ChatHistoryService.create();
+    
+    await _loadSettings();
+    await _loadHistory();
+  }
+
   Future<void> _loadSettings() async {
-    // 加载保存的设置
-    final settings = await _settingsService.loadSettings();
+    if (_settingsService == null) return;
+    
+    final settings = await _settingsService!.loadSettings();
     setState(() {
       _llmConfig = settings.llmConfig;
     });
     
-    // 如果已有配置，自动连接
     if (_llmConfig.isConfigured) {
       _connect();
     }
     
-    // 加载技能
     await _skillService.loadInstalledSkills();
     
-    // 设置当前技能
     if (widget.initialSkillId != null) {
       _currentSkillId = widget.initialSkillId!;
       _currentSkill = _skillService.getSkillById(_currentSkillId);
       if (_currentSkill != null && _isConnected) {
         _chatEngine.setSystemPrompt(_currentSkill!.systemPrompt);
       }
-    } else if (settings.currentSkillId.isNotEmpty) {
-      _currentSkillId = settings.currentSkillId;
+    } else if (settings.currentSkillId != null && settings.currentSkillId!.isNotEmpty) {
+      _currentSkillId = settings.currentSkillId!;
       _currentSkill = _skillService.getSkillById(_currentSkillId);
       if (_currentSkill != null && _isConnected) {
         _chatEngine.setSystemPrompt(_currentSkill!.systemPrompt);
@@ -113,6 +116,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadHistory() async {
+    if (_historyService == null) return;
     _sessions = await _historyService.loadSessions();
     setState(() {});
   }
@@ -134,7 +138,6 @@ class _ChatScreenState extends State<ChatScreen> {
     
     _chatEngine.setClient(client);
     
-    // 设置系统提示词（如果选择了技能）
     if (_currentSkill != null) {
       _chatEngine.setSystemPrompt(_currentSkill!.systemPrompt);
     }
@@ -144,7 +147,6 @@ class _ChatScreenState extends State<ChatScreen> {
       _showSettings = false;
     });
     
-    // 保存配置
     _saveSettings();
     
     ScaffoldMessenger.of(context).showSnackBar(
@@ -152,12 +154,12 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  /// 保存设置
   Future<void> _saveSettings() async {
-    final settings = await _settingsService.loadSettings();
-    await _settingsService.saveSettings(settings.copyWith(
+    if (_settingsService == null) return;
+    final settings = await _settingsService!.loadSettings();
+    await _settingsService!.saveSettings(settings.copyWith(
       llmConfig: _llmConfig,
-      currentSkillId: _currentSkillId,
+      currentSkillId: _currentSkillId.isNotEmpty ? _currentSkillId : null,
     ));
   }
 
@@ -169,9 +171,8 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 创建新会话（如果需要）
-      if (_currentSession == null) {
-        _currentSession = await _historyService.createSession(
+      if (_currentSession == null && _historyService != null) {
+        _currentSession = await _historyService!.createSession(
           skillId: _currentSkillId.isNotEmpty ? _currentSkillId : null,
           title: content.length > 20 ? '${content.substring(0, 20)}...' : content,
         );
@@ -181,11 +182,10 @@ class _ChatScreenState extends State<ChatScreen> {
       
       await _chatEngine.addUserMessage(content);
       
-      // 保存用户消息
-      if (_currentSession != null) {
-        await _historyService.addMessage(
+      if (_currentSession != null && _historyService != null) {
+        await _historyService!.addMessage(
           _currentSession!.id,
-          ChatMessage(role: 'user', content: content),
+          HistoryMessage(role: 'user', content: content),
         );
       }
       
@@ -242,12 +242,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _currentSession = session;
     _chatEngine.clearHistory();
     
-    // 恢复消息
     for (final msg in session.messages) {
       await _chatEngine.addUserMessage(msg.content);
     }
     
-    // 设置技能
     if (session.skillId != null && session.skillId!.isNotEmpty) {
       final skill = _skillService.getSkillById(session.skillId!);
       if (skill != null) {
@@ -274,7 +272,6 @@ class _ChatScreenState extends State<ChatScreen> {
       _chatEngine.setSystemPrompt(skill.systemPrompt);
     }
     
-    // 保存当前技能
     await _saveSettings();
     
     if (mounted) {
@@ -284,7 +281,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  /// 复制 AI 回复到剪贴板
   void _copyMessage(String content) {
     Clipboard.setData(ClipboardData(text: content));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -314,15 +310,11 @@ class _ChatScreenState extends State<ChatScreen> {
             if (_currentSkill != null)
               Text(
                 _currentSkill!.name,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.outline,
-                ),
+                style: TextStyle(fontSize: 12, color: colorScheme.outline),
               ),
           ],
         ),
         actions: [
-          // 技能选择
           IconButton(
             icon: Badge(
               isLabelVisible: _currentSkill != null,
@@ -331,7 +323,6 @@ class _ChatScreenState extends State<ChatScreen> {
             tooltip: '选择技能',
             onPressed: () => _showSkillSelector(),
           ),
-          // 对话历史
           IconButton(
             icon: Badge(
               isLabelVisible: _sessions.isNotEmpty,
@@ -354,26 +345,15 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          // 设置面板
           if (_showSettings) _buildSettingsPanel(),
-          
-          // 历史面板
           if (_showHistory) _buildHistoryPanel(),
-          
-          // 连接提示
           if (!_isConnected) _buildConnectBanner(),
-          
-          // 消息列表
           Expanded(
             child: _chatEngine.messages.isEmpty
                 ? _buildEmptyState()
                 : _buildMessageList(),
           ),
-          
-          // 错误提示
           if (_error != null) _buildErrorBanner(),
-          
-          // 输入框
           _buildInputBar(),
         ],
       ),
@@ -401,8 +381,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          
-          // 服务商选择
           DropdownButtonFormField<String>(
             value: _getPresetName(_llmConfig.baseUrl),
             decoration: const InputDecoration(
@@ -421,28 +399,16 @@ class _ChatScreenState extends State<ChatScreen> {
               setState(() {
                 switch (value) {
                   case 'OpenAI':
-                    _llmConfig = _llmConfig.copyWith(
-                      baseUrl: 'https://api.openai.com/v1',
-                      model: 'gpt-4o',
-                    );
+                    _llmConfig = _llmConfig.copyWith(baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o');
                     break;
                   case 'Kilo AI':
-                    _llmConfig = _llmConfig.copyWith(
-                      baseUrl: 'https://api.kilo.ai/api',
-                      model: 'meta-llama/Llama-3-70b-chat-hf',
-                    );
+                    _llmConfig = _llmConfig.copyWith(baseUrl: 'https://api.kilo.ai/api', model: 'meta-llama/Llama-3-70b-chat-hf');
                     break;
                   case 'OpenRouter':
-                    _llmConfig = _llmConfig.copyWith(
-                      baseUrl: 'https://openrouter.ai/api/v1',
-                      model: 'anthropic/claude-3.5-sonnet',
-                    );
+                    _llmConfig = _llmConfig.copyWith(baseUrl: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-3.5-sonnet');
                     break;
                   case 'Claude':
-                    _llmConfig = _llmConfig.copyWith(
-                      baseUrl: 'https://api.anthropic.com',
-                      model: 'claude-3-5-sonnet-20240620',
-                    );
+                    _llmConfig = _llmConfig.copyWith(baseUrl: 'https://api.anthropic.com', model: 'claude-3-5-sonnet-20240620');
                     break;
                 }
               });
@@ -450,8 +416,6 @@ class _ChatScreenState extends State<ChatScreen> {
             },
           ),
           const SizedBox(height: 12),
-          
-          // API Key
           TextField(
             decoration: const InputDecoration(
               labelText: 'API Key',
@@ -467,8 +431,6 @@ class _ChatScreenState extends State<ChatScreen> {
             },
           ),
           const SizedBox(height: 12),
-          
-          // 模型选择
           TextField(
             decoration: const InputDecoration(
               labelText: '模型',
@@ -482,8 +444,6 @@ class _ChatScreenState extends State<ChatScreen> {
             },
           ),
           const SizedBox(height: 12),
-          
-          // 高级设置
           ExpansionTile(
             title: const Text('高级设置'),
             children: [
@@ -491,40 +451,26 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   Expanded(
                     child: TextField(
-                      decoration: const InputDecoration(
-                        labelText: 'Temperature',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'Temperature', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
-                      controller: TextEditingController(
-                        text: _llmConfig.temperature.toString(),
-                      ),
+                      controller: TextEditingController(text: _llmConfig.temperature.toString()),
                       onChanged: (value) {
                         final temp = double.tryParse(value);
-                        if (temp != null) {
-                          _llmConfig = _llmConfig.copyWith(temperature: temp);
-                          _saveSettings();
-                        }
+                        if (temp != null) _llmConfig = _llmConfig.copyWith(temperature: temp);
+                        _saveSettings();
                       },
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
-                      decoration: const InputDecoration(
-                        labelText: '最大 Token',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: '最大 Token', border: OutlineInputBorder()),
                       keyboardType: TextInputType.number,
-                      controller: TextEditingController(
-                        text: _llmConfig.maxTokens.toString(),
-                      ),
+                      controller: TextEditingController(text: _llmConfig.maxTokens.toString()),
                       onChanged: (value) {
                         final tokens = int.tryParse(value);
-                        if (tokens != null) {
-                          _llmConfig = _llmConfig.copyWith(maxTokens: tokens);
-                          _saveSettings();
-                        }
+                        if (tokens != null) _llmConfig = _llmConfig.copyWith(maxTokens: tokens);
+                        _saveSettings();
                       },
                     ),
                   ),
@@ -533,8 +479,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          
-          // 连接按钮
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -586,45 +530,17 @@ class _ChatScreenState extends State<ChatScreen> {
                       return ListTile(
                         dense: true,
                         leading: const Icon(Icons.chat),
-                        title: Text(
-                          session.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          _formatDate(session.updatedAt),
-                          style: const TextStyle(fontSize: 12),
-                        ),
+                        title: Text(session.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(_formatDate(session.updatedAt), style: const TextStyle(fontSize: 12)),
                         selected: _currentSession?.id == session.id,
                         onTap: () => _loadSession(session),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, size: 18),
                           onPressed: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('删除对话'),
-                                content: const Text('确定要删除这条对话历史吗？'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: const Text('取消'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: const Text('删除'),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirmed == true) {
-                              await _historyService.deleteSession(session.id);
-                              _sessions = _historyService.sessions;
-                              if (_currentSession?.id == session.id) {
-                                _startNewSession();
-                              }
-                              setState(() {});
-                            }
+                            await _historyService?.deleteSession(session.id);
+                            _sessions = _historyService?.sessions ?? [];
+                            if (_currentSession?.id == session.id) _startNewSession();
+                            setState(() {});
                           },
                         ),
                       );
@@ -637,8 +553,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
+    final diff = DateTime.now().difference(date);
     if (diff.inMinutes < 1) return '刚刚';
     if (diff.inHours < 1) return '${diff.inMinutes}分钟前';
     if (diff.inDays < 1) return '${diff.inHours}小时前';
@@ -654,9 +569,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           const Icon(Icons.info_outline, size: 20),
           const SizedBox(width: 8),
-          const Expanded(
-            child: Text('点击右上角设置配置 AI 连接'),
-          ),
+          const Expanded(child: Text('点击右上角设置配置 AI 连接')),
           TextButton(
             onPressed: () => setState(() => _showSettings = true),
             child: const Text('去设置'),
@@ -671,24 +584,13 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.auto_awesome,
-            size: 64,
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-          ),
+          Icon(Icons.auto_awesome, size: 64, color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
           const SizedBox(height: 16),
-          Text(
-            'AI 写作助手',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          if (_currentSkill != null)
-            Text(
-              '当前技能：${_currentSkill!.name}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
+          Text('AI 写作助手', style: Theme.of(context).textTheme.titleLarge),
+          if (_currentSkill != null) ...[
+            const SizedBox(height: 8),
+            Text('当前技能：${_currentSkill!.name}', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+          ],
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
@@ -704,13 +606,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildQuickButton(String text, String type) {
-    return ActionChip(
-      label: Text(type),
-      onPressed: () {
-        _inputController.text = text;
-        _inputFocusNode.requestFocus();
-      },
-    );
+    return ActionChip(label: Text(type), onPressed: () {
+      _inputController.text = text;
+      _inputFocusNode.requestFocus();
+    });
   }
 
   Widget _buildMessageList() {
@@ -733,9 +632,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         margin: const EdgeInsets.only(bottom: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -744,14 +641,8 @@ class _ChatScreenState extends State<ChatScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (!isUser) ...[
-                  Text(_currentSkill?.name ?? 'AI 助手', style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.primary,
-                  )),
+                  Text(_currentSkill?.name ?? 'AI 助手', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colorScheme.primary)),
                   const SizedBox(width: 8),
-                ],
-                if (!isUser)
                   IconButton(
                     icon: const Icon(Icons.copy, size: 16),
                     onPressed: () => _copyMessage(message.content),
@@ -759,29 +650,22 @@ class _ChatScreenState extends State<ChatScreen> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isUser 
-                    ? colorScheme.primaryContainer 
-                    : colorScheme.surfaceContainerHighest,
+                color: isUser ? colorScheme.primaryContainer : colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(16).copyWith(
                   bottomRight: isUser ? const Radius.circular(4) : null,
                   bottomLeft: !isUser ? const Radius.circular(4) : null,
                 ),
               ),
               child: SelectableText(
-                message.content.isEmpty && message.isStreaming 
-                    ? '思考中...' 
-                    : message.content,
-                style: TextStyle(
-                  color: isUser 
-                      ? colorScheme.onPrimaryContainer 
-                      : colorScheme.onSurface,
-                ),
+                message.content.isEmpty && message.isStreaming ? '思考中...' : message.content,
+                style: TextStyle(color: isUser ? colorScheme.onPrimaryContainer : colorScheme.onSurface),
               ),
             ),
           ],
@@ -799,10 +683,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const Icon(Icons.error_outline, size: 20, color: Colors.red),
           const SizedBox(width: 8),
           Expanded(child: Text(_error!, style: const TextStyle(color: Colors.red))),
-          IconButton(
-            icon: const Icon(Icons.close, size: 20),
-            onPressed: () => setState(() => _error = null),
-          ),
+          IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => setState(() => _error = null)),
         ],
       ),
     );
@@ -815,13 +696,7 @@ class _ChatScreenState extends State<ChatScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, -2))],
       ),
       child: SafeArea(
         child: Row(
@@ -832,13 +707,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 focusNode: _inputFocusNode,
                 decoration: InputDecoration(
                   hintText: '输入你的问题或创作需求...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 maxLines: null,
                 textInputAction: TextInputAction.send,
@@ -848,13 +718,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(width: 8),
             IconButton.filled(
               onPressed: _isLoading || !_isConnected ? null : _sendMessage,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.send),
+              icon: _isLoading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send),
             ),
           ],
         ),
@@ -885,8 +749,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            
-            // 当前技能
             if (_currentSkill != null)
               ListTile(
                 leading: Text(_currentSkill!.icon, style: const TextStyle(fontSize: 24)),
@@ -894,10 +756,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 subtitle: const Text('当前使用'),
                 trailing: const Icon(Icons.check, color: Colors.green),
               ),
-            
             const Divider(),
-            
-            // 技能列表
             SizedBox(
               height: 300,
               child: ListView.builder(
@@ -909,11 +768,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     title: Text(skill.name),
                     subtitle: Text(skill.category, style: const TextStyle(fontSize: 12)),
                     selected: _currentSkillId == skill.id,
-                    trailing: _currentSkillId == skill.id
-                        ? const Icon(Icons.check, color: Colors.green)
-                        : skill.isInstalled || skill.isBuiltIn
-                            ? null
-                            : const Icon(Icons.download, size: 18),
+                    trailing: _currentSkillId == skill.id ? const Icon(Icons.check, color: Colors.green) : null,
                     onTap: () {
                       Navigator.pop(context);
                       if (skill.isInstalled || skill.isBuiltIn) {

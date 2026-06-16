@@ -1,20 +1,33 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
 /// 应用设置服务 - 持久化存储
 class AppSettingsService {
   static const _settingsFile = 'app_settings.json';
-  final String _dataPath;
+  String? _dataPath;
   
-  AppSettingsService(this._dataPath);
+  AppSettingsService();
+
+  static Future<AppSettingsService> create() async {
+    final service = AppSettingsService();
+    await service._init();
+    return service;
+  }
+
+  Future<void> _init() async {
+    final dir = await getApplicationDocumentsDirectory();
+    _dataPath = dir.path;
+  }
   
   AppSettings _settings = AppSettings();
 
   /// 加载设置
   Future<AppSettings> loadSettings() async {
+    if (_dataPath == null) return _settings;
     try {
-      final file = File(path.join(_dataPath, _settingsFile));
+      final file = File(path.join(_dataPath!, _settingsFile));
       if (await file.exists()) {
         final content = await file.readAsString();
         _settings = AppSettings.fromJson(jsonDecode(content));
@@ -26,13 +39,13 @@ class AppSettingsService {
   }
 
   /// 保存设置
-  Future<void> saveSettings() async {
+  Future<void> saveSettings(AppSettings settings) async {
+    _settings = settings;
+    if (_dataPath == null) return;
     try {
-      final file = File(path.join(_dataPath, _settingsFile));
+      final file = File(path.join(_dataPath!, _settingsFile));
       await file.writeAsString(jsonEncode(_settings.toJson()));
-    } catch (_) {
-      // 忽略保存错误
-    }
+    } catch (_) {}
   }
 
   /// 获取 AI 配置
@@ -41,7 +54,7 @@ class AppSettingsService {
   /// 更新 AI 配置
   Future<void> updateLlmConfig(LlmConfig config) async {
     _settings = _settings.copyWith(llmConfig: config);
-    await saveSettings();
+    await saveSettings(_settings);
   }
 
   /// 获取主题设置
@@ -50,7 +63,7 @@ class AppSettingsService {
   /// 更新主题设置
   Future<void> setDarkMode(bool value) async {
     _settings = _settings.copyWith(isDarkMode: value);
-    await saveSettings();
+    await saveSettings(_settings);
   }
 
   /// 获取当前使用的技能 ID
@@ -59,7 +72,7 @@ class AppSettingsService {
   /// 更新当前技能
   Future<void> setCurrentSkill(String? skillId) async {
     _settings = _settings.copyWith(currentSkillId: skillId);
-    await saveSettings();
+    await saveSettings(_settings);
   }
 }
 

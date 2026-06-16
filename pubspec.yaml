@@ -1,7 +1,7 @@
 name: openwrite_flutter
-description: OpenWrite - Modern Writing App with Beautiful UI
+description: 墨韵笔记 - OpenWrite 现代化写作应用
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.2.3+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -13,6 +13,7 @@ dependencies:
   uuid: ^4.2.1
   http: ^1.1.0
   path: ^1.8.3
+  path_provider: ^2.1.1
   sqflite: ^2.3.0
 
 dev_dependencies:

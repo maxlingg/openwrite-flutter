@@ -1,16 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
-/// 聊天消息
-class ChatMessage {
+/// 聊天历史消息（避免与 ChatEngine 的 ChatMessage 冲突）
+class HistoryMessage {
   final String id;
   final String role; // system, user, assistant
   final String content;
   final DateTime timestamp;
-  final String? skillId; // 关联的技能 ID
+  final String? skillId;
 
-  ChatMessage({
+  HistoryMessage({
     required this.id,
     required this.role,
     required this.content,
@@ -26,7 +27,7 @@ class ChatMessage {
     'skillId': skillId,
   };
 
-  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+  factory HistoryMessage.fromJson(Map<String, dynamic> json) => HistoryMessage(
     id: json['id'] as String,
     role: json['role'] as String,
     content: json['content'] as String,
@@ -39,8 +40,8 @@ class ChatMessage {
 class ChatSession {
   final String id;
   final String title;
-  final List<ChatMessage> messages;
-  final String? skillId; // 使用的技能
+  final List<HistoryMessage> messages;
+  final String? skillId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -67,7 +68,7 @@ class ChatSession {
     id: json['id'] as String,
     title: json['title'] as String,
     messages: (json['messages'] as List?)
-        ?.map((m) => ChatMessage.fromJson(m as Map<String, dynamic>))
+        ?.map((m) => HistoryMessage.fromJson(m as Map<String, dynamic>))
         .toList() ?? [],
     skillId: json['skillId'] as String?,
     createdAt: DateTime.parse(json['createdAt'] as String),
@@ -77,7 +78,7 @@ class ChatSession {
   ChatSession copyWith({
     String? id,
     String? title,
-    List<ChatMessage>? messages,
+    List<HistoryMessage>? messages,
     String? skillId,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -96,20 +97,25 @@ class ChatSession {
 /// 聊天历史服务
 class ChatHistoryService {
   static const _sessionsFile = 'chat_sessions.json';
-  final String _dataPath;
+  final String? _dataPath;
   List<ChatSession> _sessions = [];
 
-  ChatHistoryService(this._dataPath);
+  ChatHistoryService([this._dataPath]);
+
+  static Future<ChatHistoryService> create() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return ChatHistoryService(dir.path);
+  }
 
   /// 加载所有会话
   Future<List<ChatSession>> loadSessions() async {
+    if (_dataPath == null) return [];
     try {
       final file = File(path.join(_dataPath, _sessionsFile));
       if (await file.exists()) {
         final content = await file.readAsString();
         final list = jsonDecode(content) as List;
         _sessions = list.map((e) => ChatSession.fromJson(e as Map<String, dynamic>)).toList();
-        // 按更新时间倒序
         _sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       }
     } catch (_) {
@@ -120,12 +126,11 @@ class ChatHistoryService {
 
   /// 保存所有会话
   Future<void> _saveSessions() async {
+    if (_dataPath == null) return;
     try {
       final file = File(path.join(_dataPath, _sessionsFile));
       await file.writeAsString(jsonEncode(_sessions.map((s) => s.toJson()).toList()));
-    } catch (_) {
-      // 忽略保存错误
-    }
+    } catch (_) {}
   }
 
   /// 创建新会话
@@ -159,7 +164,7 @@ class ChatHistoryService {
   }
 
   /// 添加消息到会话
-  Future<void> addMessage(String sessionId, ChatMessage message) async {
+  Future<void> addMessage(String sessionId, HistoryMessage message) async {
     final index = _sessions.indexWhere((s) => s.id == sessionId);
     if (index != -1) {
       final session = _sessions[index];
@@ -176,7 +181,6 @@ class ChatHistoryService {
     }
   }
 
-  /// 获取会话
   ChatSession? getSession(String id) {
     try {
       return _sessions.firstWhere((s) => s.id == id);
@@ -185,10 +189,8 @@ class ChatHistoryService {
     }
   }
 
-  /// 获取所有会话
   List<ChatSession> get sessions => List.unmodifiable(_sessions);
 
-  /// 搜索会话
   List<ChatSession> searchSessions(String query) {
     if (query.isEmpty) return sessions;
     final lower = query.toLowerCase();
