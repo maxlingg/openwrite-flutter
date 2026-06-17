@@ -10,8 +10,7 @@ import '../widgets/modern_fab.dart';
 import 'editor_page.dart';
 import '../screens/novel_list_screen.dart';
 import '../screens/chat_screen.dart';
-import '../screens/ai_writing_tools_screen.dart';
-import '../screens/ai_novel_writing_screen.dart';
+import '../screens/ai_chat_screen.dart';
 import '../screens/settings_screen_new.dart';
 import '../providers/novel_provider.dart';
 
@@ -127,7 +126,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         children: [
           _buildNotesPage(),
           const NovelListScreen(),
-          const AINovelWritingScreen(),
+          const AIChatScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
