@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/llm_client.dart';
 import '../services/app_settings_service.dart';
-import '../models/ai_message.dart';
 
 /// AI 写作助手主页面 - 复刻原版墨问AI界面
 class AIChatScreen extends StatefulWidget {
