@@ -150,34 +150,60 @@ class LlmClient {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final models = data['data'] as List?;
-        if (models != null) {
+        
+        // OpenAI 格式
+        if (data['data'] != null) {
+          final models = data['data'] as List;
           return models
               .map((m) => m['id'] as String?)
               .where((id) => id != null && !id.contains('embeddings'))
               .cast<String>()
               .toList();
         }
+        
+        // OpenRouter 格式
+        if (data['models'] != null) {
+          final models = data['models'] as List;
+          return models
+              .map((m) => m['id'] as String?)
+              .where((id) => id != null)
+              .cast<String>()
+              .toList();
+        }
       }
       
-      // 如果上述失败，返回预设模型列表
+      // 如果请求失败但没有抛异常，返回默认模型
       return _getDefaultModels();
-    } catch (_) {
+    } catch (e) {
+      // 出错时返回基于URL检测的默认模型
       return _getDefaultModels();
     }
   }
 
   List<String> _getDefaultModels() {
     if (baseUrl.contains('openai.com')) {
-      return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'];
+      return ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'gpt-3.5-turbo-16k'];
     } else if (baseUrl.contains('anthropic')) {
-      return ['claude-3-5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229'];
+      return ['claude-3-5-sonnet-20241022', 'claude-3-5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'];
     } else if (baseUrl.contains('openrouter')) {
-      return ['anthropic/claude-3.5-sonnet', 'google/gemini-pro', 'openai/gpt-4o', 'meta-llama/Llama-3-70b-chat-hf'];
+      return ['anthropic/claude-3.5-sonnet', 'google/gemini-pro', 'google/gemini-flash-1.5', 'openai/gpt-4o', 'meta-llama/Llama-3-70b-chat-hf', 'meta-llama/Llama-3-8b-chat-hf'];
     } else if (baseUrl.contains('kilo')) {
-      return ['meta-llama/Llama-3-70b-chat-hf', 'meta-llama/Llama-3-8b-chat-hf'];
+      return ['meta-llama/Llama-3-70b-chat-hf', 'meta-llama/Llama-3-8b-chat-hf', 'Qwen/Qwen2-72B-Instruct'];
+    } else if (baseUrl.contains('zhipu')) {
+      return ['glm-4', 'glm-4-flash', 'glm-4-plus', 'glm-3-turbo'];
+    } else if (baseUrl.contains('moonshot')) {
+      return ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'];
+    } else if (baseUrl.contains('deepseek')) {
+      return ['deepseek-chat', 'deepseek-coder'];
     }
-    return [];
+    // 通用默认模型列表
+    return [
+      'gpt-4o',
+      'gpt-4o-mini', 
+      'gpt-4-turbo',
+      'claude-3-5-sonnet-20240620',
+      'meta-llama/Llama-3-70b-chat-hf',
+    ];
   }
 }
 

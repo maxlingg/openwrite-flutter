@@ -1072,9 +1072,14 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
       );
       final models = await client.fetchModels();
       setState(() => _availableModels = models);
-      if (models.isEmpty && mounted) {
+      
+      if (models.isNotEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('未获取到可用模型，使用默认列表')),
+          SnackBar(content: Text('获取到 ${models.length} 个模型')),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('使用默认模型列表')),
         );
       }
     } catch (e) {
