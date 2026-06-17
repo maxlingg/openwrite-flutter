@@ -1038,10 +1038,13 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
         apiKey: _apiKeyController.text.trim(),
         model: _model,
       );
-      final success = await client.testConnection();
+      final result = await client.testConnection();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(success ? '连接成功 ✓' : '连接失败')),
+          SnackBar(
+            content: Text(result.success ? '✓ ${result.message}' : '✗ ${result.message}'),
+            backgroundColor: result.success ? Colors.green : Colors.red,
+          ),
         );
       }
     } catch (e) {

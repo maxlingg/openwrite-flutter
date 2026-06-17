@@ -326,9 +326,16 @@ class _AISettingsSheetState extends State<_AISettingsSheet> {
     setState(() => _isTesting = true);
     try {
       final client = LlmClient(baseUrl: apiUrl, apiKey: apiKey, model: _model);
-      await client.testConnection();
+      final result = await client.testConnection();
       setState(() => _isTesting = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('连接成功！')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.success ? '✓ ${result.message}' : '✗ ${result.message}'),
+            backgroundColor: result.success ? Colors.green : Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       setState(() => _isTesting = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('连接失败: $e')));

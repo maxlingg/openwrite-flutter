@@ -125,16 +125,64 @@ class LlmClient {
   }
 
   /// 测试连接
-  Future<bool> testConnection() async {
+  Future<TestConnectionResult> testConnection() async {
     try {
-      final response = await chat(
-        messages: [LlmMessage.system('You are a helpful assistant.'), LlmMessage.user('Say "OK" if you can hear me.')],
-        maxTokens: 10,
+      // 先测试 chat 接口
+      final chatResponse = await http.post(
+        Uri.parse('$baseUrl/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'model': model,
+          'messages': [
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': 'Say "OK"'}
+          ],
+          'max_tokens': 10,
+        }),
       );
-      return response.content.isNotEmpty;
-    } catch (_) {
-      return false;
+
+      if (chatResponse.statusCode == 200) {
+        return TestConnectionResult(success: true, message: '连接成功');
+      }
+
+      // 解析错误信息
+      String errorMsg = 'HTTP ${chatResponse.statusCode}';
+      try {
+        final errorBody = jsonDecode(utf8.decode(chatResponse.bodyBytes));
+        errorMsg = errorBody['error']?['message'] ?? errorBody['error']?['type'] ?? errorMsg;
+      } catch (_) {}
+
+      // 根据状态码提供具体错误
+      switch (chatResponse.statusCode) {
+        case 401:
+          return TestConnectionResult(success: false, message: 'API 密钥无效或已过期');
+        case 403:
+          return TestConnectionResult(success: false, message: 'API 密钥权限不足');
+        case 404:
+          return TestConnectionResult(success: false, message: 'API 地址不正确，接口不存在');
+        case 429:
+          return TestConnectionResult(success: false, message: '请求过于频繁，请稍后重试');
+        default:
+          return TestConnectionResult(success: false, message: errorMsg);
+      }
+    } catch (e) {
+      if (e.toString().contains('SocketException') || e.toString().contains('HandshakeException')) {
+        return TestConnectionResult(success: false, message: '无法连接到服务器，请检查 API 地址');
+      }
+      if (e.toString().contains('TimeoutException')) {
+        return TestConnectionResult(success: false, message: '连接超时，请检查网络或 API 地址');
+      }
+      return TestConnectionResult(success: false, message: '连接失败: $e');
     }
+  }
+
+  /// 兼容旧方法的简化版本
+  Future<bool> testConnectionLegacy() async {
+    final result = await testConnection();
+    return result.success;
   }
 
   /// 获取可用模型列表
@@ -284,9 +332,17 @@ class LlmResponse {
 class LlmException implements Exception {
   final String message;
   LlmException(this.message);
-  
+
   @override
   String toString() => message;
+}
+
+/// 连接测试结果
+class TestConnectionResult {
+  final bool success;
+  final String message;
+
+  TestConnectionResult({required this.success, required this.message});
 }
 
 /// LLM 配置预设
